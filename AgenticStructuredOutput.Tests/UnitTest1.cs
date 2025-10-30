@@ -17,13 +17,24 @@ public class AgentEvaluationTests
 
     public AgentEvaluationTests()
     {
-        // Get the path to the built executable
+        // Get the path to the built executable using a more robust approach
+        var testAssemblyPath = typeof(AgentEvaluationTests).Assembly.Location;
+        var testDir = Path.GetDirectoryName(testAssemblyPath) ?? Directory.GetCurrentDirectory();
+        
+        // Navigate to the solution root and find the executable
+        var currentDir = testDir;
+        while (currentDir != null && !File.Exists(Path.Combine(currentDir, "AgenticStructuredOutput.sln")))
+        {
+            currentDir = Directory.GetParent(currentDir)?.FullName;
+        }
+        
+        if (currentDir == null)
+        {
+            throw new InvalidOperationException("Could not find solution root");
+        }
+        
         _exePath = Path.Combine(
-            Directory.GetCurrentDirectory(),
-            "..",
-            "..",
-            "..",
-            "..",
+            currentDir,
             "AgenticStructuredOutput",
             "bin",
             "Debug",
@@ -31,7 +42,7 @@ public class AgentEvaluationTests
             "AgenticStructuredOutput.dll"
         );
         
-        _testDataPath = Path.Combine(Directory.GetCurrentDirectory(), "TestData");
+        _testDataPath = Path.Combine(testDir, "TestData");
     }
 
     [Fact]

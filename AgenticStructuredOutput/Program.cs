@@ -14,7 +14,26 @@ var schemaPath = args[0];
 var inputArg = args[1];
 
 // Load the JSON schema
-var schema = await JsonSchema.FromFileAsync(schemaPath);
+JsonSchema schema;
+try
+{
+    schema = await JsonSchema.FromFileAsync(schemaPath);
+}
+catch (FileNotFoundException)
+{
+    Console.WriteLine($"Error: Schema file not found: {schemaPath}");
+    return 1;
+}
+catch (JsonException ex)
+{
+    Console.WriteLine($"Error: Invalid JSON schema - {ex.Message}");
+    return 1;
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: Failed to load schema - {ex.Message}");
+    return 1;
+}
 
 // Load input JSON (from file or string literal)
 string inputJson;
@@ -69,7 +88,10 @@ static object? MapToStructuredOutput(JsonElement input, JsonSchema schema)
         JsonValueKind.Object => MapObject(input, schema),
         JsonValueKind.Array => MapArray(input, schema),
         JsonValueKind.String => input.GetString(),
-        JsonValueKind.Number => input.TryGetInt64(out var i) ? i : input.GetDouble(),
+        JsonValueKind.Number => input.TryGetInt32(out var i32) ? i32 : 
+                                input.TryGetInt64(out var i64) ? i64 : 
+                                input.TryGetDecimal(out var dec) ? dec : 
+                                input.GetDouble(),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Null => null,
