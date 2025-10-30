@@ -1,0 +1,10 @@
+{
+  "user": {
+    "name": "Jane Smith",
+    "address": {
+      "street": "123 Main St",
+      "city": "Springfield"
+    }
+  },
+  "tags": ["developer", "engineer", "architect"]
+}
