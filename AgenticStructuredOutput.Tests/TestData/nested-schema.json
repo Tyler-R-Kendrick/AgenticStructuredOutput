@@ -8,13 +8,13 @@
         "name": {
           "type": "string"
         },
-        "address": {
+        "contact": {
           "type": "object",
           "properties": {
-            "street": {
+            "email": {
               "type": "string"
             },
-            "city": {
+            "phone": {
               "type": "string"
             }
           }

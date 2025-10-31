@@ -1,0 +1,10 @@
+{
+  "person": {
+    "fullName": "Jane Smith",
+    "contactInfo": {
+      "emailAddr": "jane@example.com",
+      "phoneNumber": "555-1234"
+    }
+  },
+  "labels": ["developer", "engineer", "architect"]
+}

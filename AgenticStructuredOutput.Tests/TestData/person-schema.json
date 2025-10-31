@@ -3,14 +3,17 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": "string"
+      "type": "string",
+      "description": "Full name of the person"
     },
     "age": {
-      "type": "integer"
+      "type": "integer",
+      "description": "Age in years"
     },
     "email": {
       "type": "string",
-      "format": "email"
+      "format": "email",
+      "description": "Email address"
     }
   },
   "required": ["name"]

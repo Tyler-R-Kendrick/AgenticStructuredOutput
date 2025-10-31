@@ -1,5 +1,6 @@
-﻿using System.Text.Json;
-using NJsonSchema;
+using System.Text.Json;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 
 // Parse command line arguments
 if (args.Length < 2)
@@ -7,6 +8,8 @@ if (args.Length < 2)
     Console.WriteLine("Usage: AgenticStructuredOutput <schema.json> <input.json|json-string>");
     Console.WriteLine("Example: AgenticStructuredOutput schema.json input.json");
     Console.WriteLine("Example: AgenticStructuredOutput schema.json '{\"name\":\"John\"}'");
+    Console.WriteLine();
+    Console.WriteLine("Note: Set OPENAI_API_KEY environment variable");
     return 1;
 }
 
@@ -14,19 +17,14 @@ var schemaPath = args[0];
 var inputArg = args[1];
 
 // Load the JSON schema
-JsonSchema schema;
+string schemaJson;
 try
 {
-    schema = await JsonSchema.FromFileAsync(schemaPath);
+    schemaJson = await File.ReadAllTextAsync(schemaPath);
 }
 catch (FileNotFoundException)
 {
     Console.WriteLine($"Error: Schema file not found: {schemaPath}");
-    return 1;
-}
-catch (JsonException ex)
-{
-    Console.WriteLine($"Error: Invalid JSON schema - {ex.Message}");
     return 1;
 }
 catch (Exception ex)
@@ -46,86 +44,99 @@ else
     inputJson = inputArg;
 }
 
-// Parse and validate the input
-JsonDocument inputDoc;
+// Validate JSON inputs
 try
 {
-    inputDoc = JsonDocument.Parse(inputJson);
+    JsonDocument.Parse(schemaJson);
+    JsonDocument.Parse(inputJson);
 }
 catch (JsonException ex)
 {
-    Console.WriteLine($"Error: Invalid JSON input - {ex.Message}");
+    Console.WriteLine($"Error: Invalid JSON - {ex.Message}");
     return 1;
 }
 
-// Validate against schema
-var validationErrors = schema.Validate(inputJson);
+// Get API key from environment
+var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
 
-if (validationErrors.Count > 0)
+if (string.IsNullOrEmpty(apiKey))
 {
-    Console.WriteLine("Validation failed with the following errors:");
-    foreach (var error in validationErrors)
-    {
-        Console.WriteLine($"  - {error.Path}: {error.Kind}");
-    }
+    Console.WriteLine("Error: No API key found. Set OPENAI_API_KEY environment variable.");
     return 1;
 }
 
-// Map the input to structured output
-var output = MapToStructuredOutput(inputDoc.RootElement, schema);
+// Create Semantic Kernel with the mapping agent
+var builder = Kernel.CreateBuilder();
+builder.AddOpenAIChatCompletion(
+    modelId: Environment.GetEnvironmentVariable("OPENAI_MODEL") ?? "gpt-4o-mini",
+    apiKey: apiKey
+);
 
-// Serialize and output the result
-var options = new JsonSerializerOptions { WriteIndented = true };
-Console.WriteLine(JsonSerializer.Serialize(output, options));
+var kernel = builder.Build();
+var chatService = kernel.GetRequiredService<IChatCompletionService>();
 
-return 0;
+// Create the mapping agent with expert instructions  
+var agentInstruction = """
+You are an expert in data mapping and structured output transformation.
+Your task is to intelligently map JSON input to a target schema using fuzzy logic and inference.
 
-// Helper function to map input to structured output using inference
-static object? MapToStructuredOutput(JsonElement input, JsonSchema schema)
+Instructions:
+- Use intelligent inference to map input fields to schema fields
+- Apply fuzzy matching when field names don't exactly match (e.g., "fullName" could map to "name")
+- Infer appropriate data types based on schema requirements
+- Fill in reasonable defaults or null values for missing required fields when possible
+- Handle nested structures intelligently
+- Preserve data structure and relationships
+- Return ONLY valid JSON that conforms to the schema, with no additional explanation
+""";
+
+var userPrompt = $$$"""
+Target Schema:
+{{{schemaJson}}}
+
+Input Data:
+{{{inputJson}}}
+
+Output the mapped JSON structure now:
+""";
+
+try
 {
-    return input.ValueKind switch
-    {
-        JsonValueKind.Object => MapObject(input, schema),
-        JsonValueKind.Array => MapArray(input, schema),
-        JsonValueKind.String => input.GetString(),
-        JsonValueKind.Number => input.TryGetInt32(out var i32) ? i32 : 
-                                input.TryGetInt64(out var i64) ? i64 : 
-                                input.TryGetDecimal(out var dec) ? dec : 
-                                input.GetDouble(),
-        JsonValueKind.True => true,
-        JsonValueKind.False => false,
-        JsonValueKind.Null => null,
-        _ => throw new ArgumentException($"Unsupported JSON value kind: {input.ValueKind}")
-    };
-}
-
-static Dictionary<string, object?> MapObject(JsonElement input, JsonSchema schema)
-{
-    var result = new Dictionary<string, object?>();
+    // Create chat history with agent instruction
+    var chatHistory = new ChatHistory(agentInstruction);
+    chatHistory.AddUserMessage(userPrompt);
     
-    foreach (var prop in input.EnumerateObject())
+    // Get response from the mapping agent
+    var response = await chatService.GetChatMessageContentAsync(chatHistory);
+    var content = response.Content?.Trim() ?? "";
+    
+    // Clean up potential markdown code blocks
+    if (content.StartsWith("```json"))
     {
-        var propSchema = schema.Properties.ContainsKey(prop.Name) 
-            ? schema.Properties[prop.Name] 
-            : null;
-        
-        result[prop.Name] = propSchema != null 
-            ? MapToStructuredOutput(prop.Value, propSchema) 
-            : MapToStructuredOutput(prop.Value, schema);
+        content = content.Substring(7);
     }
-    
-    return result;
-}
-
-static List<object?> MapArray(JsonElement input, JsonSchema schema)
-{
-    var result = new List<object?>();
-    var itemSchema = schema.Item ?? schema;
-    
-    foreach (var item in input.EnumerateArray())
+    if (content.StartsWith("```"))
     {
-        result.Add(MapToStructuredOutput(item, itemSchema));
+        content = content.Substring(3);
     }
+    if (content.EndsWith("```"))
+    {
+        content = content.Substring(0, content.Length - 3);
+    }
+    content = content.Trim();
     
-    return result;
+    // Validate the output is valid JSON
+    JsonDocument.Parse(content);
+    
+    // Pretty print the output
+    var jsonDoc = JsonDocument.Parse(content);
+    var options = new JsonSerializerOptions { WriteIndented = true };
+    Console.WriteLine(JsonSerializer.Serialize(jsonDoc, options));
+    
+    return 0;
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: Agent failed to map data - {ex.Message}");
+    return 1;
 }
