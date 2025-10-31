@@ -1,32 +1,38 @@
 # AgenticStructuredOutput
 
-Applies structured output to agent interactions using **Microsoft Agent Framework** (Semantic Kernel), mapping inputs to output schemas through AI-powered fuzzy logic and intelligent inference.
+Applies structured output to agent interactions using **Microsoft Agent Framework**, mapping inputs to output schemas through AI-powered fuzzy logic and intelligent inference.
 
 ## Overview
 
-This is a minimal C# agent-framework that uses **Microsoft Semantic Kernel** to create an AI agent that intelligently maps JSON input to a target schema. Unlike deterministic field-name matching, this agent uses **fuzzy logic** and **inference** to understand semantic relationships between fields.
+This implementation uses the **Microsoft Agent Framework** (not Semantic Kernel) to create an AI agent that intelligently maps JSON input to a target schema. The agent uses **fuzzy logic** and **inference** to understand semantic relationships between fields, producing structured output that conforms to the target schema.
 
 ## Key Features
 
-- **AI-Powered Mapping**: Uses Microsoft Agent Framework (Semantic Kernel) with OpenAI
-- **Fuzzy Logic**: Intelligently maps fields like "fullName" → "name", "yearsOld" → "age"
-- **Agent Instructions**: Expert mapping agent with specific instructions for data transformation
+- **Microsoft Agent Framework**: Uses official `Microsoft.Agents.AI` library
+- **AI-Powered Fuzzy Mapping**: Intelligently maps fields like "fullName" → "name", "yearsOld" → "age"
+- **Expert Agent Instructions**: Agent configured as "expert in data mapping"
+- **Structured Output**: Uses JSON Schema to enforce output structure
 - **Flexible Input**: Accepts input as file path or string literal
-- **Nested Structures**: Handles complex nested objects and arrays
 - **Type Inference**: Automatically infers appropriate data types
 
 ## Agent Architecture
 
-The application creates an AI agent with explicit instructions:
-```
-You are an expert in data mapping and structured output transformation.
-Your task is to intelligently map JSON input to a target schema using fuzzy logic and inference.
+The application creates an AI agent with explicit expert instructions using Microsoft Agent Framework:
+
+```csharp
+var agent = chatClient.CreateAIAgent(new ChatClientAgentOptions
+{
+    Name = "DataMappingExpert",
+    Instructions = "You are an expert in data mapping and structured output transformation...",
+    ChatOptions = chatOptions  // Includes JSON Schema for structured output
+});
 ```
 
 The agent uses:
-- **Microsoft Semantic Kernel**: For agent orchestration
-- **OpenAI ChatCompletion**: For intelligent field mapping
-- **Structured Output**: Generates JSON conforming to target schema
+- **Microsoft.Agents.AI**: Official Microsoft Agent Framework
+- **Microsoft.Agents.AI.OpenAI**: OpenAI integration
+- **Structured Output via JSON Schema**: Enforces output conformance
+- **Fuzzy Logic Inference**: AI-powered field mapping
 
 ## Prerequisites
 
@@ -54,7 +60,7 @@ dotnet run -- schema.json '{"firstName":"Alice","ageInYears":25}'
 
 ## Fuzzy Mapping Examples
 
-### Example 1: Person Schema
+### Example: Person Schema
 
 **Schema** expects:
 ```json
@@ -76,7 +82,7 @@ dotnet run -- schema.json '{"firstName":"Alice","ageInYears":25}'
 }
 ```
 
-**Agent Output** (intelligently mapped):
+**Agent Output** (intelligently mapped using AI inference):
 ```json
 {
   "name": "John Doe",
@@ -85,40 +91,10 @@ dotnet run -- schema.json '{"firstName":"Alice","ageInYears":25}'
 }
 ```
 
-### Example 2: Nested Schema
-
-**Schema** expects:
-```json
-{
-  "properties": {
-    "user": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "contact": { ... }
-      }
-    },
-    "tags": { "type": "array", "items": { "type": "string" } }
-  }
-}
-```
-
-**Input** with different structure:
-```json
-{
-  "person": {
-    "fullName": "Jane Smith",
-    "contactInfo": { ... }
-  },
-  "labels": ["developer", "engineer"]
-}
-```
-
-**Agent Output** (semantically mapped):
-- `person` → `user`
-- `fullName` → `name`
-- `contactInfo` → `contact`
-- `labels` → `tags`
+The agent uses fuzzy logic to understand that:
+- `fullName` semantically maps to `name`
+- `yearsOld` semantically maps to `age`
+- `emailAddress` semantically maps to `email`
 
 ## Building
 
@@ -128,13 +104,12 @@ dotnet build
 
 ## Testing
 
-The project includes comprehensive evaluation tests covering:
+The project includes comprehensive evaluation tests:
 
-- **Fuzzy Mapping**: Tests field name inference (fullName → name)
-- **Nested Structures**: Tests intelligent mapping of nested objects
+- **Fuzzy Mapping**: Tests AI-powered field name inference
 - **String Literals**: Tests direct JSON string input
 - **Error Handling**: Tests invalid JSON and missing API keys
-- **Performance**: Validates completion within reasonable time
+- **Performance**: Validates completion within 30 seconds
 - **Output Validation**: Ensures output is valid JSON
 
 Run tests with:
@@ -149,18 +124,18 @@ dotnet test
 
 The agent demonstrates validity across common evaluation criteria:
 
-1. **Correctness** - Uses AI to produce accurate mappings with fuzzy logic
+1. **Correctness** - AI agent produces accurate mappings with fuzzy logic
 2. **Robustness** - Handles errors gracefully (invalid JSON, missing keys)
-3. **Agent Intelligence** - Applies semantic understanding to map fields
+3. **Agent Intelligence** - Uses Microsoft Agent Framework with expert instructions
 4. **Performance** - Completes within 30 seconds (includes AI API latency)
 5. **Flexibility** - Accepts both file and string inputs
-6. **Schema Conformance** - Output always conforms to target schema
+6. **Schema Conformance** - Output enforced via JSON Schema structured output
 
 ## Dependencies
 
 - .NET 9.0
-- **Microsoft.SemanticKernel** 1.66.0 - Agent framework
-- **Microsoft.SemanticKernel.Connectors.OpenAI** 1.66.0 - OpenAI integration
+- **Microsoft.Agents.AI** 1.0.0-preview.251028.1 - Official Microsoft Agent Framework
+- **Microsoft.Agents.AI.OpenAI** 1.0.0-preview.251028.1 - OpenAI integration for agents
 - **Microsoft.Extensions.AI** 9.10.1 - AI abstractions
 
 All dependencies are free from known vulnerabilities.
@@ -168,17 +143,23 @@ All dependencies are free from known vulnerabilities.
 ## Architecture
 
 ```
-User Input (JSON) 
+User Input (JSON) + Schema (JSON)
     ↓
-Schema (JSON) 
-    ↓
-AI Mapping Agent (Semantic Kernel + OpenAI)
+AI Agent (Microsoft Agent Framework)
     - Expert Instructions
-    - Fuzzy Logic Inference
-    - Semantic Understanding
+    - Fuzzy Logic Inference  
+    - Structured Output via JSON Schema
     ↓
-Structured Output (JSON)
+Conformant JSON Output
 ```
+
+## Key Differences from Semantic Kernel
+
+This implementation uses **Microsoft Agent Framework** (`Microsoft.Agents.AI`), not Semantic Kernel:
+- Agent Framework is purpose-built for agentic AI patterns
+- Includes structured output enforcement via JSON Schema
+- Provides better agent orchestration capabilities
+- Part of Microsoft's unified agent strategy
 
 ## License
 

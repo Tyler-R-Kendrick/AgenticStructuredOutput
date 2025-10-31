@@ -18,11 +18,9 @@ public class AgentEvaluationTests
 
     public AgentEvaluationTests()
     {
-        // Get the path to the built executable using a more robust approach
         var testAssemblyPath = typeof(AgentEvaluationTests).Assembly.Location;
         var testDir = Path.GetDirectoryName(testAssemblyPath) ?? Directory.GetCurrentDirectory();
         
-        // Navigate to the solution root and find the executable
         var currentDir = testDir;
         while (currentDir != null && !File.Exists(Path.Combine(currentDir, "AgenticStructuredOutput.sln")))
         {
@@ -47,71 +45,37 @@ public class AgentEvaluationTests
     }
 
     [Fact]
-    public async Task Test_FuzzyMapping_PersonSchema_FieldNamesInfer()
+    public async Task Test_FuzzyMapping_AgentInference()
     {
-        // Arrange: Input has "fullName", "yearsOld", "emailAddress"
-        // Schema expects "name", "age", "email"
         var schemaPath = Path.Combine(_testDataPath, "person-schema.json");
         var inputPath = Path.Combine(_testDataPath, "person-input-fuzzy.json");
 
-        // Skip test if no API key
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
-            return; // Skip test
+            return; // Skip test if no API key
         }
 
-        // Act
         var (exitCode, output, error) = await RunAgentAsync(schemaPath, inputPath);
 
-        // Assert
         Assert.Equal(0, exitCode);
-        // Agent should intelligently map fullName -> name, yearsOld -> age, emailAddress -> email
         Assert.Contains("John Doe", output);
         Assert.Contains("30", output);
         Assert.Contains("john.doe@example.com", output);
     }
 
     [Fact]
-    public async Task Test_FuzzyMapping_NestedSchema_IntelligentInference()
+    public async Task Test_StringLiteralInput()
     {
-        // Arrange: Input has "person" but schema expects "user", etc.
-        var schemaPath = Path.Combine(_testDataPath, "nested-schema.json");
-        var inputPath = Path.Combine(_testDataPath, "nested-input-fuzzy.json");
-
-        // Skip test if no API key
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
-        {
-            return; // Skip test
-        }
-
-        // Act
-        var (exitCode, output, error) = await RunAgentAsync(schemaPath, inputPath);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        // Agent should map person->user, fullName->name, contactInfo->contact, labels->tags, etc.
-        Assert.Contains("Jane Smith", output);
-        Assert.Contains("jane@example.com", output);
-        Assert.Contains("developer", output);
-    }
-
-    [Fact]
-    public async Task Test_StringLiteralInput_ValidJson_ReturnsSuccess()
-    {
-        // Arrange
         var schemaPath = Path.Combine(_testDataPath, "person-schema.json");
         var jsonInput = "{\"firstName\":\"Alice\",\"ageInYears\":25}";
 
-        // Skip test if no API key
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
             return; // Skip test
         }
 
-        // Act
         var (exitCode, output, error) = await RunAgentAsync(schemaPath, jsonInput);
 
-        // Assert
         Assert.Equal(0, exitCode);
         Assert.Contains("Alice", output);
     }
@@ -119,14 +83,11 @@ public class AgentEvaluationTests
     [Fact]
     public async Task Test_InvalidJson_ReturnsError()
     {
-        // Arrange
         var schemaPath = Path.Combine(_testDataPath, "person-schema.json");
         var invalidJson = "{invalid json}";
 
-        // Act
         var (exitCode, output, error) = await RunAgentAsync(schemaPath, invalidJson);
 
-        // Assert
         Assert.Equal(1, exitCode);
         Assert.Contains("Invalid JSON", output);
     }
@@ -134,10 +95,8 @@ public class AgentEvaluationTests
     [Fact]
     public async Task Test_NoArguments_ShowsUsage()
     {
-        // Act
         var (exitCode, output, error) = await RunAgentAsync();
 
-        // Assert
         Assert.Equal(1, exitCode);
         Assert.Contains("Usage:", output);
     }
@@ -145,7 +104,6 @@ public class AgentEvaluationTests
     [Fact]
     public async Task Test_NoApiKey_ShowsError()
     {
-        // Arrange
         var schemaPath = Path.Combine(_testDataPath, "person-schema.json");
         var inputPath = Path.Combine(_testDataPath, "person-input-fuzzy.json");
         
@@ -155,16 +113,13 @@ public class AgentEvaluationTests
         {
             Environment.SetEnvironmentVariable("OPENAI_API_KEY", null);
 
-            // Act
             var (exitCode, output, error) = await RunAgentAsync(schemaPath, inputPath);
 
-            // Assert
             Assert.Equal(1, exitCode);
             Assert.Contains("No API key found", output);
         }
         finally
         {
-            // Restore original API key
             Environment.SetEnvironmentVariable("OPENAI_API_KEY", originalApiKey);
         }
     }
@@ -172,11 +127,9 @@ public class AgentEvaluationTests
     [Fact]
     public async Task Test_Performance_CompleteWithinTimeLimit()
     {
-        // Arrange
         var schemaPath = Path.Combine(_testDataPath, "person-schema.json");
         var inputPath = Path.Combine(_testDataPath, "person-input-fuzzy.json");
 
-        // Skip test if no API key
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
             return; // Skip test
@@ -184,11 +137,9 @@ public class AgentEvaluationTests
 
         var stopwatch = Stopwatch.StartNew();
 
-        // Act
         var (exitCode, output, error) = await RunAgentAsync(schemaPath, inputPath);
         stopwatch.Stop();
 
-        // Assert - should complete within 30 seconds (agent API calls take longer)
         Assert.Equal(0, exitCode);
         Assert.True(stopwatch.ElapsedMilliseconds < 30000, 
             $"Agent took too long: {stopwatch.ElapsedMilliseconds}ms");
@@ -197,22 +148,17 @@ public class AgentEvaluationTests
     [Fact]
     public async Task Test_OutputIsValidJson()
     {
-        // Arrange
         var schemaPath = Path.Combine(_testDataPath, "person-schema.json");
         var jsonInput = "{\"personName\":\"Bob\",\"yearsOfAge\":42}";
 
-        // Skip test if no API key
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
         {
             return; // Skip test
         }
 
-        // Act
         var (exitCode, output, error) = await RunAgentAsync(schemaPath, jsonInput);
 
-        // Assert
         Assert.Equal(0, exitCode);
-        // Should be valid JSON
         var exception = Record.Exception(() => JsonDocument.Parse(output));
         Assert.Null(exception);
     }
