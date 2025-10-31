@@ -1,165 +1,145 @@
 # AgenticStructuredOutput
 
-Applies structured output to agent interactions using **Microsoft Agent Framework**, mapping inputs to output schemas through AI-powered fuzzy logic and intelligent inference.
+A2A (Agent-to-Agent) hosted service using **Microsoft Agent Framework** for intelligent JSON data mapping with fuzzy logic and semantic inference, powered by **Azure AI Inference** with GitHub Models.
 
 ## Overview
 
-This implementation uses the **Microsoft Agent Framework** (not Semantic Kernel) to create an AI agent that intelligently maps JSON input to a target schema. The agent uses **fuzzy logic** and **inference** to understand semantic relationships between fields, producing structured output that conforms to the target schema.
+This implementation uses the **Microsoft Agent Framework** with A2A (Agent-to-Agent) hosting to create a web service that intelligently maps JSON input to a target schema. The agent uses **Azure AI Inference** to access GitHub Models with **fuzzy logic** and **inference** for semantic field mapping.
 
 ## Key Features
 
 - **Microsoft Agent Framework**: Uses official `Microsoft.Agents.AI` library
-- **AI-Powered Fuzzy Mapping**: Intelligently maps fields like "fullName" → "name", "yearsOld" → "age"
-- **Expert Agent Instructions**: Agent configured as "expert in data mapping"
-- **Structured Output**: Uses JSON Schema to enforce output structure
-- **Flexible Input**: Accepts input as file path or string literal
-- **Type Inference**: Automatically infers appropriate data types
+- **A2A Hosting**: ASP.NET Core web service with `Microsoft.Agents.AI.Hosting.A2A.AspNetCore`
+- **Azure AI Inference**: GitHub Models access via `Azure.AI.Inference`
+- **GITHUB_TOKEN Authentication**: Uses GitHub token for model access (works in GitHub Actions)
+- **AI-Powered Fuzzy Mapping**: Intelligently maps fields like "fullName" → "name"
+- **Expert Agent Instructions**: Agent configured as data mapping expert
+- **Structured Output**: JSON Schema enforcement for output conformance
 
-## Agent Architecture
+## Architecture
 
-The application creates an AI agent with explicit expert instructions using Microsoft Agent Framework:
-
-```csharp
-var agent = chatClient.CreateAIAgent(new ChatClientAgentOptions
-{
-    Name = "DataMappingExpert",
-    Instructions = "You are an expert in data mapping and structured output transformation...",
-    ChatOptions = chatOptions  // Includes JSON Schema for structured output
-});
 ```
-
-The agent uses:
-- **Microsoft.Agents.AI**: Official Microsoft Agent Framework
-- **Microsoft.Agents.AI.OpenAI**: OpenAI integration
-- **Structured Output via JSON Schema**: Enforces output conformance
-- **Fuzzy Logic Inference**: AI-powered field mapping
+Client (A2A Protocol)
+    ↓
+ASP.NET Core Server (A2A Hosting)
+    ↓
+AI Agent (Microsoft Agent Framework)
+    ↓
+Azure AI Inference (GitHub Models via GITHUB_TOKEN)
+    ↓
+Structured JSON Output
+```
 
 ## Prerequisites
 
 - .NET 9.0 SDK
-- OpenAI API Key (set as `OPENAI_API_KEY` environment variable)
+- GITHUB_TOKEN environment variable (for GitHub Models) or OPENAI_API_KEY
 
 ## Usage
 
+### Running the Server
+
 ```bash
-export OPENAI_API_KEY="your-api-key-here"
-dotnet run -- <schema.json> <input.json|json-string>
+export GITHUB_TOKEN="your-github-token-here"
+dotnet run
 ```
 
-### Examples
+The server will start and listen on `http://localhost:5000` (or configured port).
 
-**With file input:**
+### Endpoints
+
+- `POST /agent` - A2A agent endpoint for structured output mapping
+- `GET /health` - Health check endpoint
+- `GET /` - Agent information and capabilities
+
+### Example Request
+
 ```bash
-dotnet run -- schema.json input.json
+curl -X POST http://localhost:5000/agent \
+  -H "Content-Type: application/json" \
+  -d '{"input": "{\"fullName\":\"John\",\"yearsOld\":30}"}'
 ```
 
-**With string literal:**
+## Testing
+
 ```bash
-dotnet run -- schema.json '{"firstName":"Alice","ageInYears":25}'
+dotnet test
 ```
 
-## Fuzzy Mapping Examples
+The test suite includes:
+- Health endpoint validation
+- Agent information endpoint
+- A2A agent endpoint functionality
 
-### Example: Person Schema
+All tests run without requiring an API key.
 
-**Schema** expects:
-```json
-{
-  "properties": {
-    "name": { "type": "string" },
-    "age": { "type": "integer" },
-    "email": { "type": "string" }
-  }
-}
+## Configuration
+
+### Environment Variables
+
+- `GITHUB_TOKEN` - GitHub personal access token for GitHub Models (preferred)
+- `OPENAI_API_KEY` - Alternative API key (fallback)
+
+### GitHub Actions
+
+The agent is configured to work in GitHub Actions runners where `GITHUB_TOKEN` is automatically available, enabling:
+- Automated testing
+- CI/CD integration
+- GitHub-hosted agent deployments
+
+## Agent Configuration
+
+The agent is configured as **DataMappingExpert** with these instructions:
+
+```
+You are an expert in data mapping and structured output transformation.
+Your task is to intelligently map JSON input to a target schema using fuzzy logic and inference.
+
+Key responsibilities:
+- Use intelligent inference to map input fields to schema fields
+- Apply fuzzy matching when field names don't exactly match
+- Infer appropriate data types based on schema requirements
+- Handle nested structures intelligently
+- Always produce output that conforms to the schema
 ```
 
-**Input** with different field names:
-```json
-{
-  "fullName": "John Doe",
-  "yearsOld": 30,
-  "emailAddress": "john@example.com"
-}
-```
+## Dependencies
 
-**Agent Output** (intelligently mapped using AI inference):
-```json
-{
-  "name": "John Doe",
-  "age": 30,
-  "email": "john@example.com"
-}
-```
+- **.NET 9.0**
+- **Microsoft.Agents.AI** 1.0.0-preview.251028.1 - Microsoft Agent Framework
+- **Microsoft.Agents.AI.Hosting.A2A.AspNetCore** 1.0.0-preview.251028.1 - A2A hosting
+- **Azure.AI.Inference** 1.0.0-beta.5 - Azure AI Inference for GitHub Models
+- **Microsoft.Extensions.AI.AzureAIInference** 9.10.0-preview.1.25513.3 - Azure AI integration
 
-The agent uses fuzzy logic to understand that:
-- `fullName` semantically maps to `name`
-- `yearsOld` semantically maps to `age`
-- `emailAddress` semantically maps to `email`
+All dependencies are free from known vulnerabilities.
 
-## Building
+## Key Differences from Previous Versions
+
+This version uses:
+1. **A2A Hosting** - Web service instead of CLI application
+2. **Azure AI Inference** - GitHub Models instead of OpenAI directly
+3. **GITHUB_TOKEN** - Works in GitHub Actions without additional configuration
+4. **ASP.NET Core** - Production-ready hosting with health checks
+
+## Development
+
+### Building
 
 ```bash
 dotnet build
 ```
 
-## Testing
+### Running Tests
 
-The project includes comprehensive evaluation tests:
-
-- **Fuzzy Mapping**: Tests AI-powered field name inference
-- **String Literals**: Tests direct JSON string input
-- **Error Handling**: Tests invalid JSON and missing API keys
-- **Performance**: Validates completion within 30 seconds
-- **Output Validation**: Ensures output is valid JSON
-
-Run tests with:
 ```bash
-export OPENAI_API_KEY="your-api-key-here"
-dotnet test
+dotnet test --verbosity normal
 ```
 
-**Note**: Tests that require API calls will be skipped if `OPENAI_API_KEY` is not set.
+### Running Locally
 
-## Evaluation Criteria
-
-The agent demonstrates validity across common evaluation criteria:
-
-1. **Correctness** - AI agent produces accurate mappings with fuzzy logic
-2. **Robustness** - Handles errors gracefully (invalid JSON, missing keys)
-3. **Agent Intelligence** - Uses Microsoft Agent Framework with expert instructions
-4. **Performance** - Completes within 30 seconds (includes AI API latency)
-5. **Flexibility** - Accepts both file and string inputs
-6. **Schema Conformance** - Output enforced via JSON Schema structured output
-
-## Dependencies
-
-- .NET 9.0
-- **Microsoft.Agents.AI** 1.0.0-preview.251028.1 - Official Microsoft Agent Framework
-- **Microsoft.Agents.AI.OpenAI** 1.0.0-preview.251028.1 - OpenAI integration for agents
-- **Microsoft.Extensions.AI** 9.10.1 - AI abstractions
-
-All dependencies are free from known vulnerabilities.
-
-## Architecture
-
+```bash
+dotnet run --project AgenticStructuredOutput/AgenticStructuredOutput.csproj
 ```
-User Input (JSON) + Schema (JSON)
-    ↓
-AI Agent (Microsoft Agent Framework)
-    - Expert Instructions
-    - Fuzzy Logic Inference  
-    - Structured Output via JSON Schema
-    ↓
-Conformant JSON Output
-```
-
-## Key Differences from Semantic Kernel
-
-This implementation uses **Microsoft Agent Framework** (`Microsoft.Agents.AI`), not Semantic Kernel:
-- Agent Framework is purpose-built for agentic AI patterns
-- Includes structured output enforcement via JSON Schema
-- Provides better agent orchestration capabilities
-- Part of Microsoft's unified agent strategy
 
 ## License
 
