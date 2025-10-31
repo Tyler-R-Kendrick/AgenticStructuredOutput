@@ -40,15 +40,20 @@ public class AgentServerTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Contains("Microsoft Agent Framework", content);
         Assert.Contains("Azure AI Inference", content);
         Assert.Contains("GITHUB_TOKEN", content);
+        Assert.Contains("Dynamic JSON schema support", content);
     }
 
     [Fact]
-    public async Task AgentEndpoint_Exists()
+    public async Task AgentEndpoint_RequiresBothInputAndSchema()
     {
-        var testPayload = new { input = "{\"name\": \"test\"}" };
-        var response = await _client.PostAsJsonAsync("/agent", testPayload);
+        // Test missing schema
+        var testPayload1 = new { input = "{\"name\": \"test\"}" };
+        var response1 = await _client.PostAsJsonAsync("/agent", testPayload1);
+        Assert.Equal(HttpStatusCode.BadRequest, response1.StatusCode);
         
-        // Should not return 404 Not Found
-        Assert.NotEqual(HttpStatusCode.NotFound, response.StatusCode);
+        // Test missing input
+        var testPayload2 = new { schema = "{\"type\": \"object\"}" };
+        var response2 = await _client.PostAsJsonAsync("/agent", testPayload2);
+        Assert.Equal(HttpStatusCode.BadRequest, response2.StatusCode);
     }
 }

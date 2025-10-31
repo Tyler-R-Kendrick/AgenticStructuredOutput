@@ -1,7 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Azure;
 using Azure.AI.Inference;
+using Json.Schema;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
@@ -22,50 +24,16 @@ var endpoint = new Uri("https://models.inference.ai.azure.com");
 var credential = new AzureKeyCredential(apiKey);
 var chatCompletionsClient = new ChatCompletionsClient(endpoint, credential);
 
-// Create JSON schema for structured output using the MappedOutput class
-JsonElement schema = AIJsonUtilities.CreateJsonSchema(typeof(MappedOutput));
-
-// Configure chat options with structured output
-var chatOptions = new ChatOptions
-{
-    ResponseFormat = ChatResponseFormatJson.ForJsonSchema(
-        schema: schema,
-        schemaName: "MappedOutput",
-        schemaDescription: "Intelligently mapped JSON output conforming to the target schema"
-    )
-};
-
 // Create IChatClient wrapper for Azure AI Inference
 IChatClient chatClient = new AzureInferenceChatClient(chatCompletionsClient, "gpt-4o-mini");
 
-// Create the AI agent with expert instructions
-var agent = chatClient.CreateAIAgent(new ChatClientAgentOptions
-{
-    Name = "DataMappingExpert",
-    Instructions = """
-    You are an expert in data mapping and structured output transformation.
-    Your task is to intelligently map JSON input to a target schema using fuzzy logic and inference.
-    
-    Key responsibilities:
-    - Use intelligent inference to map input fields to schema fields
-    - Apply fuzzy matching when field names don't exactly match (e.g., "fullName" → "name", "yearsOld" → "age")
-    - Infer appropriate data types based on schema requirements
-    - Fill in reasonable defaults or null values for missing fields when appropriate
-    - Handle nested structures intelligently
-    - Preserve data structure and relationships
-    
-    Always produce output that exactly conforms to the provided schema.
-    """,
-    ChatOptions = chatOptions
-});
-
-// Register agent as singleton
-builder.Services.AddSingleton(agent);
+// Register chat client as singleton (we'll create agents dynamically per request)
+builder.Services.AddSingleton(chatClient);
 
 var app = builder.Build();
 
-// A2A agent endpoint - properly implements agent execution
-app.MapPost("/agent", async (HttpContext context, AIAgent agent) =>
+// A2A agent endpoint - accepts dynamic schema and executes agent
+app.MapPost("/agent", async (HttpContext context, IChatClient chatClient) =>
 {
     try
     {
@@ -77,6 +45,54 @@ app.MapPost("/agent", async (HttpContext context, AIAgent agent) =>
             return Results.BadRequest(new { error = "Input is required" });
         }
         
+        if (request?.Schema == null)
+        {
+            return Results.BadRequest(new { error = "Schema is required" });
+        }
+        
+        // Parse the schema from the request
+        JsonElement schemaElement;
+        try
+        {
+            using var schemaDoc = JsonDocument.Parse(request.Schema);
+            schemaElement = schemaDoc.RootElement.Clone();
+        }
+        catch (JsonException ex)
+        {
+            return Results.BadRequest(new { error = $"Invalid schema JSON: {ex.Message}" });
+        }
+        
+        // Configure chat options with the dynamic schema
+        var chatOptions = new ChatOptions
+        {
+            ResponseFormat = ChatResponseFormat.ForJsonSchema(
+                schemaElement,
+                schemaName: "DynamicOutput",
+                schemaDescription: "Intelligently mapped JSON output conforming to the provided schema"
+            )
+        };
+        
+        // Create the AI agent with expert instructions and dynamic schema
+        var agent = chatClient.CreateAIAgent(new ChatClientAgentOptions
+        {
+            Name = "DataMappingExpert",
+            Instructions = """
+            You are an expert in data mapping and structured output transformation.
+            Your task is to intelligently map JSON input to a target schema using fuzzy logic and inference.
+            
+            Key responsibilities:
+            - Use intelligent inference to map input fields to schema fields
+            - Apply fuzzy matching when field names don't exactly match (e.g., "fullName" → "name", "yearsOld" → "age")
+            - Infer appropriate data types based on schema requirements
+            - Fill in reasonable defaults or null values for missing fields when appropriate
+            - Handle nested structures intelligently
+            - Preserve data structure and relationships
+            
+            Always produce output that exactly conforms to the provided schema.
+            """,
+            ChatOptions = chatOptions
+        });
+        
         // Create prompt for the agent
         var prompt = $"""
         Map the following JSON input to the target schema using intelligent inference and fuzzy logic:
@@ -84,17 +100,36 @@ app.MapPost("/agent", async (HttpContext context, AIAgent agent) =>
         Input Data:
         {request.Input}
         
+        Target Schema:
+        {request.Schema}
+        
         Map the fields intelligently, using fuzzy matching for field names and type inference as needed.
         """;
         
         // Execute the agent with structured output
         var response = await agent.RunAsync(prompt);
-        var output = response.ToString();
+        var outputText = response.ToString();
         
-        // Parse and return the structured output
-        var mappedOutput = JsonSerializer.Deserialize<MappedOutput>(output);
+        // Parse as dynamic JSON
+        JsonNode? outputNode = JsonNode.Parse(outputText);
         
-        return Results.Ok(mappedOutput);
+        if (outputNode == null)
+        {
+            return Results.Problem("Agent produced invalid JSON output");
+        }
+        
+        // Validate using the same schema
+        var compiledSchema = JsonSchema.FromText(request.Schema);
+        var validationResult = compiledSchema.Evaluate(outputNode);
+        
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors?.Select(e => e.Value) ?? new[] { "Unknown validation error" });
+            return Results.Problem($"Agent output failed schema validation: {errors}");
+        }
+        
+        // Return the validated output as JSON
+        return Results.Json(outputNode);
     }
     catch (Exception ex)
     {
@@ -116,7 +151,7 @@ app.MapGet("/health", () => Results.Ok(new HealthResponse
 app.MapGet("/", () => Results.Ok(new AgentInfo
 { 
     Name = "DataMappingExpert",
-    Description = "AI agent for intelligent JSON data mapping with fuzzy logic",
+    Description = "AI agent for intelligent JSON data mapping with fuzzy logic and dynamic schema support",
     Version = "1.0.0",
     Framework = "Microsoft Agent Framework",
     Hosting = "A2A AspNetCore",
@@ -124,32 +159,29 @@ app.MapGet("/", () => Results.Ok(new AgentInfo
     Authentication = "GITHUB_TOKEN environment variable",
     Endpoints = new[]
     {
-        "POST /agent - A2A agent endpoint for structured output mapping",
+        "POST /agent - A2A agent endpoint for structured output mapping with dynamic schema",
         "GET /health - Health check",
         "GET / - Agent information"
+    },
+    Features = new[]
+    {
+        "Dynamic JSON schema support",
+        "Fuzzy logic field mapping",
+        "Runtime schema validation with JsonSchema.Net",
+        "AI-powered inference"
     }
 }));
 
 app.Run();
 
-// Structured output class for mapping results
-public class MappedOutput
-{
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
-    
-    [JsonPropertyName("age")]
-    public int? Age { get; set; }
-    
-    [JsonPropertyName("email")]
-    public string? Email { get; set; }
-}
-
-// Request model
+// Request model with dynamic schema
 public class AgentRequest
 {
     [JsonPropertyName("input")]
     public string? Input { get; set; }
+    
+    [JsonPropertyName("schema")]
+    public string? Schema { get; set; }
 }
 
 // Response models
@@ -196,6 +228,9 @@ public class AgentInfo
     
     [JsonPropertyName("endpoints")]
     public string[]? Endpoints { get; set; }
+    
+    [JsonPropertyName("features")]
+    public string[]? Features { get; set; }
 }
 
 // IChatClient wrapper for Azure AI Inference
