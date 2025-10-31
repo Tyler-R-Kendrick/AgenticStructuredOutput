@@ -1,0 +1,16 @@
+{
+	"image": "mcr.microsoft.com/devcontainers/dotnet:1-9.0-bookworm",
+	"features": {
+		"ghcr.io/azure/azure-dev/azd:0": {},
+		"ghcr.io/dotnet/aspire-devcontainer-feature/dotnetaspire:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-windows-ai-studio.windows-ai-studio",
+				"GitHub.copilot-chat",
+				"ms-dotnettools.csdevkit"
+			]
+		}
+	}
+}

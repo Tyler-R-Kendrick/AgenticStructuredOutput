@@ -1,0 +1,16 @@
+{
+  "files.associations": {
+    "*.slnx": "xml"
+  },
+  "dotnet.defaultSolution": "AgenticStructuredOutput.slnx",
+  "omnisharp.defaultLaunchSolution": "AgenticStructuredOutput.slnx",
+  "xml.fileAssociations": [
+    {
+      "pattern": "**/*.slnx",
+      "systemId": "https://schemas.microsoft.com/developer/msbuild/2003"
+    }
+  ],
+  "emmet.includeLanguages": {
+    "slnx": "xml"
+  }
+}
