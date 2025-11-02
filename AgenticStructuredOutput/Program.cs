@@ -7,13 +7,9 @@ using AgenticStructuredOutput;
 using A2A.AspNetCore;
 using AgenticStructuredOutput.Services;
 using Json.More;
-using Microsoft.Agents.AI;
 using A2A;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Register inference client (handles API key setup)
-builder.Services.AddInferenceClient();
 
 // Register agent services
 builder.Services.AddAgentServices();
@@ -21,7 +17,22 @@ builder.Services.AddAgentServices();
 var app = builder.Build();
 
 var agentFactory = app.Services.GetRequiredService<IAgentFactory>();
-var jsonSchema = JsonSchema.FromFile("schema.json");
+
+// Load schema from embedded resource
+var assembly = typeof(Program).Assembly;
+var resourceName = "AgenticStructuredOutput.Resources.schema.json";
+string schemaJson;
+using (var stream = assembly.GetManifestResourceStream(resourceName))
+{
+    if (stream == null)
+    {
+        throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
+    }
+    using var reader = new StreamReader(stream);
+    schemaJson = reader.ReadToEnd();
+}
+
+var jsonSchema = JsonSchema.FromText(schemaJson);
 var schemaJsonElement = jsonSchema.ToJsonDocument().RootElement;
 // Create the AI agent using the factory
 var agent = await agentFactory.CreateDataMappingAgentAsync(new()
@@ -39,7 +50,7 @@ AgentCard agentCard = new()
     IconUrl = "https://example.com/agent-icon.png"
 };
 
-var a2aTaskManager = app.MapA2A(
+app.MapA2A(
     agent,
     path: "/",
     agentCard: agentCard,
