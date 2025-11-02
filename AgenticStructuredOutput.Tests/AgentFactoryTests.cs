@@ -6,43 +6,22 @@ using Moq;
 
 namespace AgenticStructuredOutput.Tests;
 
+[TestFixture]
 public class AgentFactoryTests
 {
-    [Fact]
-    public async Task CreateDataMappingAgentAsync_ShouldCreateAgentWithInstructions()
+    [Test]
+    public async Task CreateDataMappingAgentAsync_ShouldReturnValidInstructedAgent()
     {
         // Arrange
         var mockChatClient = new Mock<IChatClient>();
         var mockLogger = new Mock<ILogger<AgentFactory>>();
         var factory = new AgentFactory(mockChatClient.Object, mockLogger.Object);
 
-        // Act & Assert - This mainly tests that the factory can create an agent without throwing
-        var exception = await Record.ExceptionAsync(async () =>
-        {
-            await factory.CreateDataMappingAgentAsync();
-        });
+        // Act
+        var agent = await factory.CreateDataMappingAgentAsync();
 
-        // The method should not throw an exception when creating the agent
-        Assert.Null(exception);
-    }
-
-    [Fact]
-    public async Task CreateDataMappingAgentAsync_ShouldReturnInstructedAgent()
-    {
-        // Arrange
-        var mockChatClient = new Mock<IChatClient>();
-        var mockLogger = new Mock<ILogger<AgentFactory>>();
-        var factory = new AgentFactory(mockChatClient.Object, mockLogger.Object);
-
-        // Act & Assert - This mainly tests that the factory returns an AIAgent without throwing
-        var exception = await Record.ExceptionAsync(async () =>
-        {
-            var agent = await factory.CreateDataMappingAgentAsync();
-            Assert.NotNull(agent);
-            Assert.IsAssignableFrom<AIAgent>(agent);
-        });
-
-        // The method should not throw an exception when creating the agent
-        Assert.Null(exception);
+        // Assert
+        Assert.That(agent, Is.Not.Null);
+        Assert.That(agent, Is.InstanceOf<AIAgent>());
     }
 }

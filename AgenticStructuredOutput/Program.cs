@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
 using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI;
 using AgenticStructuredOutput.Extensions;
 using AgenticStructuredOutput;
 using A2A.AspNetCore;
@@ -16,39 +17,47 @@ builder.Services.AddAgentServices();
 
 var app = builder.Build();
 
-var agentFactory = app.Services.GetRequiredService<IAgentFactory>();
-
-// Load schema from embedded resource
-var assembly = typeof(Program).Assembly;
-var resourceName = "AgenticStructuredOutput.Resources.schema.json";
-string schemaJson;
-using (var stream = assembly.GetManifestResourceStream(resourceName))
-{
-    if (stream == null)
-    {
-        throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
-    }
-    using var reader = new StreamReader(stream);
-    schemaJson = reader.ReadToEnd();
-}
-
-var jsonSchema = JsonSchema.FromText(schemaJson);
-var schemaJsonElement = jsonSchema.ToJsonDocument().RootElement;
-// Create the AI agent using the factory
-var agent = await agentFactory.CreateDataMappingAgentAsync(new()
-{
-    ResponseFormat = ChatResponseFormat.ForJsonSchema(
-        schema: schemaJsonElement,
-        schemaName: "DynamicOutput",
-        schemaDescription: "Intelligently mapped JSON output conforming to the provided schema"
-    )
-});
+// Initialize agent at startup within a scope to properly resolve scoped services
+AIAgent? agent = null;
 AgentCard agentCard = new()
 {
     Name = "Agentic Structured Output Agent",
     Description = "An AI agent that produces structured JSON output based on a provided schema.",
     IconUrl = "https://example.com/agent-icon.png"
 };
+
+// Create agent within a scope to resolve scoped dependencies
+using (var scope = app.Services.CreateScope())
+{
+    var agentFactory = scope.ServiceProvider.GetRequiredService<IAgentFactory>();
+
+    // Load schema from embedded resource
+    var assembly = typeof(Program).Assembly;
+    var resourceName = "AgenticStructuredOutput.Resources.schema.json";
+    string schemaJson;
+    using (var stream = assembly.GetManifestResourceStream(resourceName))
+    {
+        if (stream == null)
+        {
+            throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
+        }
+        using var reader = new StreamReader(stream);
+        schemaJson = reader.ReadToEnd();
+    }
+
+    var jsonSchema = JsonSchema.FromText(schemaJson);
+    var schemaJsonElement = jsonSchema.ToJsonDocument().RootElement;
+    
+    // Create the AI agent using the factory
+    agent = await agentFactory.CreateDataMappingAgentAsync(new()
+    {
+        ResponseFormat = ChatResponseFormat.ForJsonSchema(
+            schema: schemaJsonElement,
+            schemaName: "DynamicOutput",
+            schemaDescription: "Intelligently mapped JSON output conforming to the provided schema"
+        )
+    });
+}
 
 app.MapA2A(
     agent,

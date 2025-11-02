@@ -1,45 +1,55 @@
-using Azure;
-using Azure.AI.Inference;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using AgenticStructuredOutput.Services;
 
 namespace AgenticStructuredOutput.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAgentServices(this IServiceCollection services)
+    /// <summary>
+    /// Adds chat client services to the dependency injection container using OpenAI SDK.
+    /// Uses the AzureInferenceChatClientBuilder for consistent configuration with GitHub Models.
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="configureOptions">Optional action to configure inference options</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddAgentServices(
+        this IServiceCollection services,
+        Action<AzureAIInferenceOptions>? configureOptions = null)
     {
         services.AddSingleton<IAgentFactory, AgentFactory>();
 
-        // Get API key from environment (GITHUB_TOKEN for GitHub Models)
-        var apiKey = Environment.GetEnvironmentVariable("GITHUB_TOKEN") 
-            ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") 
-            ?? throw new InvalidOperationException("No API key found in environment variables");
-
-        // Only create and register the real chat client if we have an API key
-        // Tests can override this by providing their own IChatClient implementation
-        if (!string.IsNullOrEmpty(apiKey))
+        // Configure options with defaults
+        AzureAIInferenceOptions options = new()
         {
-            // Create Azure AI Inference client for GitHub Models
-            var endpoint = new Uri("https://models.inference.ai.azure.com");
-            var credential = new AzureKeyCredential(apiKey);
-            var chatClient = new ChatCompletionsClient(endpoint, credential);
+            ApiKey = Environment.GetEnvironmentVariable("GITHUB_TOKEN")
+        };
+        configureOptions?.Invoke(options);
 
-            // Register chat client as singleton (we'll create agents dynamically per request)
-            services.AddSingleton(chatClient.AsIChatClient());
-        }
-        else
-        {
-            // Register a factory that logs the warning when requested
-            services.AddSingleton<IChatClient>(sp =>
-            {
-                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                var logger = loggerFactory.CreateLogger("InferenceClient");
-                logger.LogWarning("No API key found. Set GITHUB_TOKEN or OPENAI_API_KEY environment variable.");
-                throw new InvalidOperationException("No API key configured and no test mock provided");
-            });
-        }
+        // Resolve API key: explicit config > environment variable > fallback
+        var apiKey = options.ApiKey ?? throw new InvalidOperationException(
+                $"No API key configured. Set GITHUB_TOKEN environment variable or provide ApiKey in AzureAIInferenceOptions.");
 
+        // Create chat client using builder for consistency
+        var chatClient = new AzureInferenceChatClientBuilder()
+            .WithApiKey(apiKey)
+            .BuildIChatClient();
+
+        // Register chat client as singleton (we'll create agents dynamically per request)
+        services.AddSingleton(chatClient);
         return services;
     }
+
+    /// <summary>
+    /// Adds chat client services configured from IConfiguration.
+    /// Looks for "AzureAIInference" section in configuration.
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="configuration">The application configuration</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddAgentServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
+        => services.AddAgentServices(options
+            => configuration.GetSection("AzureAIInference").Bind(options));
 }

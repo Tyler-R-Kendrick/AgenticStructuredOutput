@@ -1,304 +1,171 @@
-using System.Text.Json;
-using AgenticStructuredOutput;
 using AgenticStructuredOutput.Services;
 using AgenticStructuredOutput.Extensions;
-using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Json.Schema;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Json.More;
 
 namespace AgenticStructuredOutput.Tests;
 
-/// <summary>
-/// Direct Agent Integration Tests - instantiate and test the agent directly
-/// without web server or A2A complexity
-/// </summary>
-public class AgentIntegrationTests : IAsyncLifetime
+[TestFixture]
+[Parallelizable(ParallelScope.None)]  // Run sequentially
+public class AgentIntegrationTests
 {
-    private IAgentFactory? _agentFactory;
-    private AIAgent? _agent;
-    private IServiceProvider? _serviceProvider;
+    private JsonElement? _defaultSchemaElement;
 
-    public async Task InitializeAsync()
+    [OneTimeSetUp]
+    public void LoadDefaultSchema()
     {
-        // Setup DI container with required services
-        var services = new ServiceCollection();
-        
-        // Add logging
-        services.AddLogging(builder => builder.AddConsole());
-        
-        // Add agent services (mimics Program.cs setup)
-        services.AddAgentServices();
-        
-        _serviceProvider = services.BuildServiceProvider();
-        _agentFactory = _serviceProvider.GetRequiredService<IAgentFactory>();
-        
-        // Load the schema
-        var assembly = typeof(Program).Assembly;
+        // Load schema from the main project's embedded resource
+        var assembly = typeof(AgentFactory).Assembly;  // Get the main project assembly
         var resourceName = "AgenticStructuredOutput.Resources.schema.json";
-        string schemaJson;
-        using (var stream = assembly.GetManifestResourceStream(resourceName))
+        using var stream = assembly.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
+        using var reader = new StreamReader(stream);
+        var schemaJson = reader.ReadToEnd();
+        var schemaDoc = JsonDocument.Parse(schemaJson);
+        _defaultSchemaElement = schemaDoc.RootElement.Clone();
+    }
+
+    private async Task<string> InvokeAgentAsync(string userMessage, JsonElement? overrideSchema = null)
+    {        
+        try
         {
-            if (stream == null)
+            // Setup DI container with required services
+            await LogAsync("Setting up DI container...");
+            var services = new ServiceCollection();
+            
+            // Add logging
+            services.AddLogging(builder => builder.AddConsole());
+
+            // Add agent services (mimics Program.cs setup)
+            await LogAsync($"GITHUB_TOKEN set: {!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GITHUB_TOKEN"))}");
+            await LogAsync($"OPENAI_API_KEY set: {!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY"))}");
+            await LogAsync($"MODEL_ID: {Environment.GetEnvironmentVariable("MODEL_ID") ?? "openai/gpt-4o-mini (default)"}");
+            
+            services.AddAgentServices();
+            
+            var serviceProvider = services.BuildServiceProvider();            
+            var factory = serviceProvider.GetRequiredService<IAgentFactory>();
+            
+            var modelId = Environment.GetEnvironmentVariable("MODEL_ID") ?? "openai/gpt-4o-mini";
+            await LogAsync($"Creating agent with model: {modelId}");
+
+            var schemaElement = overrideSchema ?? _defaultSchemaElement;
+            if (schemaElement == null)
             {
-                throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
+                throw new InvalidOperationException("Schema element is not initialized");
             }
-            using var reader = new StreamReader(stream);
-            schemaJson = reader.ReadToEnd();
+
+            await LogAsync("Creating agent with JSON schema response format...");
+
+            var agent = await factory.CreateDataMappingAgentAsync(new()
+            {
+                ModelId = modelId,
+                ResponseFormat = ChatResponseFormat.ForJsonSchema(
+                    schema: schemaElement.Value,
+                    schemaName: "DynamicOutput",
+                    schemaDescription: "Intelligently mapped JSON output conforming to the provided schema"
+                )
+            });
+
+            await LogAsync($"Invoking agent with user message...");
+            await LogAsync($"Message: {userMessage[..Math.Min(100, userMessage.Length)]}...");
+            
+            // Execute agent - timeout is handled by NUnit's CancelAfter attribute
+            var response = await agent.RunAsync(userMessage, cancellationToken: TestContext.CurrentContext.CancellationToken);
+            
+            return response?.Text ?? string.Empty;
         }
-
-        var jsonSchema = JsonSchema.FromText(schemaJson);
-        using var schemaDoc = jsonSchema.ToJsonDocument();
-        var schemaElement = schemaDoc.RootElement.Clone();
-        
-        // Create the agent with schema validation
-        // Note: ModelId must be specified for Azure AI Inference
-        var modelId = Environment.GetEnvironmentVariable("MODEL_ID") ?? "gpt-4o";
-        _agent = await _agentFactory.CreateDataMappingAgentAsync(new()
+        catch (Exception ex)
         {
-            ModelId = modelId,
-            ResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat.ForJsonSchema(
-                schema: schemaElement,
-                schemaName: "DynamicOutput",
-                schemaDescription: "Intelligently mapped JSON output conforming to the provided schema"
-            )
-        });
-        
-        await Task.CompletedTask;
-    }
-
-    public async Task DisposeAsync()
-    {
-        (_serviceProvider as IAsyncDisposable)?.DisposeAsync().GetAwaiter().GetResult();
-        await Task.CompletedTask;
-    }
-
-    private async Task<string> InvokeAgentAsync(string userMessage)
-    {
-        if (_agent == null)
-        {
-            throw new InvalidOperationException("Agent not initialized");
+            await LogAsync($"Error: {ex.GetType().Name}: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                await LogAsync($"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            }
+            throw;
         }
-
-        var response = await _agent.RunAsync(userMessage);
-        return response?.Text ?? string.Empty;
     }
 
-    [Fact]
-    public async Task Agent_WithValidFuzzyMappedInput_ShouldMapFuzzyFieldNames()
+    private static async Task LogAsync(string message)
     {
-        // Arrange
-        var fuzzyInput = @"{
-            ""first_name"": ""John"",
-            ""last_name"": ""Doe"",
-            ""email_address"": ""john.doe@example.com""
-        }";
-
-        var prompt = $"Map the following input to the schema, using fuzzy matching for field names:\nInput:\n{fuzzyInput}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response), 
-            "Agent should return a response with content");
+        await TestContext.Out.WriteLineAsync($"[TEST] {message}");
     }
 
-    [Fact]
-    public async Task Agent_WithStructuredInput_ShouldPreserveStructure()
-    {
-        // Arrange
-        var structuredInput = @"{
-            ""firstName"": ""Jane"",
-            ""lastName"": ""Smith"",
-            ""email"": ""jane.smith@example.com""
-        }";
-
-        var prompt = $"Map the following structured input to the schema:\nInput:\n{structuredInput}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should return a response");
-    }
-
-    [Fact]
-    public async Task Agent_WithComplexNestedInput_ShouldFlattenStructure()
-    {
-        // Arrange
-        var complexInput = @"{
-            ""name"": { 
-                ""first"": ""Michael"",
-                ""last"": ""Brown""
+    [Test]
+    [CancelAfter(5000)]  // 3 second timeout
+    [TestCase(
+        "Fuzzy matching",
+        """
+        {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email_address": "john.doe@example.com"
+        }
+        """,
+        """
+        {
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john.doe@example.com"
+        }
+        """
+    )]
+    
+    [TestCase(
+        "Nested extraction",
+        """
+        {
+            "name": { 
+                "first": "Michael",
+                "last": "Brown"
             },
-            ""contact"": {
-                ""email"": ""michael.brown@example.com""
+            "contact": {
+                "email": "michael.brown@example.com"
             }
-        }";
-
-        var prompt = $"Map the following nested input to the flat schema, extracting values from nested properties:\nInput:\n{complexInput}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should flatten and map nested structure");
-    }
-
-    [Fact]
-    public async Task Agent_WithMinimalRequiredFields_ShouldProcess()
+        }
+        """,
+        """
+        {
+            "firstName": "Michael",
+            "lastName": "Brown",
+            "email": "michael.brown@example.com"
+        }
+        """
+    )]
+    public async Task Agent_ShouldMapInputSuccessfully(string testScenario, string input, string expectedJsonOutput)
     {
+        await LogAsync($"Starting test scenario: {testScenario}");
+        
         // Arrange
-        var minimalInput = @"{
-            ""firstName"": ""Alice"",
-            ""lastName"": ""Johnson"",
-            ""email"": ""alice.johnson@example.com""
-        }";
-
-        var prompt = $"Map the following input with minimal fields to the schema:\nInput:\n{minimalInput}";
+        var prompt = $"Map the following input to the schema:\nInput:\n{input}";
 
         // Act
+        await LogAsync($"Invoking agent for scenario: {testScenario}");
         var response = await InvokeAgentAsync(prompt);
 
         // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should process minimal required fields");
-    }
+        await LogAsync($"Received response of {response?.Length ?? 0} characters for scenario: {testScenario}");
+        Assert.That(response, Is.Not.Null, "Response should not be null");
+        Assert.That(response, Is.Not.Empty, "Response should not be empty");
+        Assert.That(response.Trim(), Is.Not.Empty, "Response should not be whitespace only");
 
-    [Fact]
-    public async Task Agent_WithDifferentCasingPatterns_ShouldNormalize()
-    {
-        // Arrange
-        var casingSensitiveInput = @"{
-            ""FirstName"": ""Bob"",
-            ""LASTNAME"": ""Wilson"",
-            ""Email"": ""bob.wilson@example.com""
-        }";
+        await LogAsync($"Parsing response JSON for scenario: {testScenario}");
+        await LogAsync($"Response content: {response}");
+        var responseJson = JsonNode.Parse(response) ?? throw new InvalidOperationException("Response JSON could not be parsed");
+        var expectedJson = JsonNode.Parse(expectedJsonOutput) ?? throw new InvalidOperationException("Expected JSON could not be parsed");
 
-        var prompt = $"Map the following input with various casing to the schema, normalizing field names through fuzzy matching:\nInput:\n{casingSensitiveInput}";
+        foreach(var property in expectedJson.AsObject())
+        {
+            var responseProperty = responseJson![property.Key];
+            var areEqual = responseProperty != null && responseProperty.ToJsonString() == property.Value?.ToJsonString();
+            Assert.That(areEqual,
+                Is.True,
+                $"Property '{property.Key}' should match expected value in scenario: {testScenario}");
+        }
 
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should normalize casing");
-    }
-
-    [Fact]
-    public async Task Agent_WithExtraFields_ShouldFilterToSchema()
-    {
-        // Arrange
-        var inputWithExtraFields = @"{
-            ""firstName"": ""Carol"",
-            ""lastName"": ""Martinez"",
-            ""email"": ""carol.martinez@example.com"",
-            ""socialSecurityNumber"": ""123-45-6789"",
-            ""internalId"": ""12345""
-        }";
-
-        var prompt = $"Map the following input to the schema, filtering out fields not in the schema:\nInput:\n{inputWithExtraFields}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should extract only schema-relevant fields");
-    }
-
-    [Fact]
-    public async Task Agent_WithAbbreviatedFieldNames_ShouldMapToFull()
-    {
-        // Arrange
-        var abbreviatedInput = @"{
-            ""fname"": ""David"",
-            ""lname"": ""Lee"",
-            ""email"": ""david.lee@example.com""
-        }";
-
-        var prompt = $"Map the following input with abbreviated field names to the full schema field names:\nInput:\n{abbreviatedInput}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should fuzzy-match abbreviations");
-    }
-
-    [Fact]
-    public async Task Agent_ShouldProduceValidJsonResponse()
-    {
-        // Arrange
-        var input = @"{
-            ""firstName"": ""Eve"",
-            ""lastName"": ""Taylor"",
-            ""email"": ""eve.taylor@example.com""
-        }";
-
-        var prompt = $"Map the following input to valid JSON conforming to the schema. Only respond with valid JSON.\nInput:\n{input}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should produce a response");
-    }
-
-    [Fact]
-    public async Task Agent_OutputShouldConformToSchema_WhenSuccessful()
-    {
-        // Arrange
-        var input = @"{
-            ""firstName"": ""Frank"",
-            ""lastName"": ""Anderson"",
-            ""email"": ""frank.anderson@example.com"",
-            ""phoneNumber"": ""555-5555""
-        }";
-
-        var prompt = $"Map and validate the following input against the schema:\nInput:\n{input}\n\nRespond with valid JSON conforming to the schema.";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should produce schema-conformant output");
-    }
-
-    [Fact]
-    public async Task Agent_ShouldBeInvokedSuccessfully()
-    {
-        // Arrange - Simple test to verify agent invocation
-        var simpleInput = @"{
-            ""firstName"": ""Test"",
-            ""lastName"": ""User"",
-            ""email"": ""test@example.com""
-        }";
-
-        var prompt = $"Map this input to the schema:\nInput:\n{simpleInput}";
-
-        // Act
-        var response = await InvokeAgentAsync(prompt);
-
-        // Assert - Verify agent was successfully invoked and returned a response
-        Assert.NotNull(response);
-        Assert.True(!string.IsNullOrWhiteSpace(response),
-            "Agent should be invoked successfully and return a response");
+        await LogAsync($"Test scenario passed: {testScenario}");
     }
 }
