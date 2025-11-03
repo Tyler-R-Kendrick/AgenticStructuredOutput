@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <LoggerRunSettings>
+    <Loggers>
+      <Logger friendlyName="trx" enabled="True">
+        <Configuration>
+          <LogFileName>TestResults.trx</LogFileName>
+          <ResultsDirectory>./TestResults</ResultsDirectory>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="console" enabled="True" />
+    </Loggers>
+  </LoggerRunSettings>
+</RunSettings>
