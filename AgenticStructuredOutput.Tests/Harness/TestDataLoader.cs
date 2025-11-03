@@ -6,7 +6,7 @@ namespace AgenticStructuredOutput.Tests.Harness;
 /// Loads test data from JSONL files with type-safe parsing and validation.
 /// Encapsulates common patterns for both integration and evaluation test case loading.
 /// </summary>
-public static class TestDataLoader
+public static partial class TestDataLoader
 {
     /// <summary>
     /// Loads integration test cases from a JSONL file.
@@ -70,10 +70,8 @@ public static class TestDataLoader
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            var obj = JsonNode.Parse(line)?.AsObject();
-            if (obj == null)
-                throw new InvalidOperationException($"Failed to parse JSON line: {line}");
-
+            var obj = (JsonNode.Parse(line)?.AsObject())
+                ?? throw new InvalidOperationException($"Failed to parse JSON line: {line}");
             yield return obj;
         }
     }
@@ -82,8 +80,8 @@ public static class TestDataLoader
     /// Sanitize test scenario names for use in NUnit test names.
     /// Replaces spaces, dashes, and special chars with underscores.
     /// </summary>
-    private static string SanitizeTestName(string scenario)
-    {
-        return System.Text.RegularExpressions.Regex.Replace(scenario, @"[^\w]", "_");
-    }
+    private static string SanitizeTestName(string scenario) => MyRegex().Replace(scenario, "_");
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"[^\w]")]
+    private static partial System.Text.RegularExpressions.Regex MyRegex();
 }

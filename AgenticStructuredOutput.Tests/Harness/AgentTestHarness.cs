@@ -21,7 +21,7 @@ public abstract class AgentTestHarness
     /// Called during [OneTimeSetUp].
     /// </summary>
     [OneTimeSetUp]
-    public void SetupDefaultSchema()
+    public virtual void SetupDefaultSchema()
     {
         try
         {

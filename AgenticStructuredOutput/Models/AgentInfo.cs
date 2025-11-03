@@ -1,7 +1,10 @@
 using System.Text.Json.Serialization;
 
-namespace AgenticStructuredOutput;
+namespace AgenticStructuredOutput.Models;
 
+/// <summary>
+/// Metadata about the agent service.
+/// </summary>
 public class AgentInfo
 {
     [JsonPropertyName("name")]

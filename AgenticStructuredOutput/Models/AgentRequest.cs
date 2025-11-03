@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
 
-namespace AgenticStructuredOutput;
+namespace AgenticStructuredOutput.Models;
 
-// Request model with dynamic schema
+/// <summary>
+/// Request model with dynamic schema for the agent API.
+/// </summary>
 public class AgentRequest
 {
     [JsonPropertyName("input")]

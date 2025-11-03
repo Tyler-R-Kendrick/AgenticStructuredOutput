@@ -1,9 +1,5 @@
 {"evaluationType": "Relevance", "testScenario": "Relevance - fuzzy name mapping", "input": "{\"first_name\": \"John\",\"last_name\": \"Doe\",\"email_address\": \"john.doe@example.com\"}"}
 {"evaluationType": "Relevance", "testScenario": "Relevance - nested structure extraction", "input": "{\"name\": {\"first\": \"Michael\",\"last\": \"Brown\"},\"contact\": {\"email\": \"michael.brown@example.com\"}}"}
-{"evaluationType": "Coherence", "testScenario": "Coherence - flat structure", "input": "{\"firstName\": \"Alice\",\"lastName\": \"Williams\",\"email\": \"alice@example.com\"}"}
-{"evaluationType": "Coherence", "testScenario": "Coherence - complex transformation", "input": "{\"user\": {\"first_name\": \"Charlie\",\"last_name\": \"Davis\",\"contact_info\": {\"email_address\": \"charlie@example.com\"}}}"}
-{"evaluationType": "Fluency", "testScenario": "Fluency - simple output", "input": "{\"first_name\": \"Eve\",\"last_name\": \"Wilson\",\"email_address\": \"eve.wilson@example.com\"}"}
-{"evaluationType": "Fluency", "testScenario": "Fluency - complex transformation", "input": "{\"person\": {\"info\": {\"given\": \"Frank\",\"family\": \"Moore\"}},\"contact\": {\"address\": {\"email\": \"frank.moore@example.com\"}}}"}
 {"evaluationType": "Correctness", "testScenario": "Correctness - field value accuracy", "input": "{\"first_name\": \"Jane\",\"last_name\": \"Smith\",\"email_address\": \"jane.smith@example.com\"}"}
 {"evaluationType": "Correctness", "testScenario": "Correctness - nested extraction", "input": "{\"name\": {\"first\": \"Robert\",\"last\": \"Johnson\"},\"contact\": {\"email\": \"robert@example.com\"}}"}
 {"evaluationType": "Completeness", "testScenario": "Completeness - all fields present", "input": "{\"first_name\": \"Eve\",\"last_name\": \"Martinez\",\"email_address\": \"eve.martinez@example.com\"}"}

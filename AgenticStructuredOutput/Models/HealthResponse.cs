@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
 
-namespace AgenticStructuredOutput;
+namespace AgenticStructuredOutput.Models;
 
-// Response models
+/// <summary>
+/// Response model for health check and agent metadata endpoints.
+/// </summary>
 public class HealthResponse
 {
     [JsonPropertyName("status")]

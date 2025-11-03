@@ -1,5 +1,8 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
+using A2A.AspNetCore;
+using Microsoft.Agents.AI;
+using A2A;
 using AgenticStructuredOutput.Services;
 
 namespace AgenticStructuredOutput.Extensions;
@@ -18,6 +21,7 @@ public static class ServiceCollectionExtensions
         Action<AzureAIInferenceOptions>? configureOptions = null)
     {
         services.AddSingleton<IAgentFactory, AgentFactory>();
+        services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
 
         // Configure options with defaults
         AzureAIInferenceOptions options = new()
@@ -52,4 +56,32 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
         => services.AddAgentServices(options
             => configuration.GetSection("AzureAIInference").Bind(options));
+}
+
+/// <summary>
+/// Extension methods for configuring A2A routing and agent endpoints.
+/// </summary>
+public static class WebApplicationExtensions
+{
+    /// <summary>
+    /// Configures the A2A (Agent-to-Agent) routing for the agent service.
+    /// </summary>
+    /// <param name="app">The web application</param>
+    /// <param name="executionService">The agent execution service</param>
+    /// <returns>The web application for chaining</returns>
+    public static WebApplication MapAgentRoutes(this WebApplication app, IAgentExecutionService executionService)
+    {
+        if (executionService.Agent == null)
+        {
+            throw new InvalidOperationException("Agent execution service must be initialized before mapping routes");
+        }
+
+        app.MapA2A(
+            executionService.Agent,
+            path: "/",
+            agentCard: executionService.AgentCard,
+            taskManager => app.MapWellKnownAgentCard(taskManager, "/"));
+
+        return app;
+    }
 }
