@@ -87,6 +87,15 @@ public static class ResourceLoader
     /// </summary>
     public static string GetResourcePath(string fileName)
     {
+        // Prevent path traversal and absolute paths
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            fileName.Contains("..") ||
+            fileName.Contains(Path.DirectorySeparatorChar) ||
+            fileName.Contains(Path.AltDirectorySeparatorChar) ||
+            Path.IsPathRooted(fileName))
+        {
+            throw new ArgumentException("Invalid file name for resource path.", nameof(fileName));
+        }
         return Path.Combine(GetSolutionRoot(), fileName);
     }
 
