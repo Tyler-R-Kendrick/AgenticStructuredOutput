@@ -40,9 +40,8 @@ public class JsonLEvalPersistence : IEvalPersistence
 
         using var writer = new StreamWriter(filePath, false);
         
-        foreach (var testCase in testCaseList)
+        foreach (var json in testCaseList.Select(tc => JsonSerializer.Serialize(tc, _serializerOptions)))
         {
-            var json = JsonSerializer.Serialize(testCase, _serializerOptions);
             await writer.WriteLineAsync(json.AsMemory(), cancellationToken);
         }
 
