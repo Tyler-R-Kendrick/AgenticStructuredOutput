@@ -1,41 +1,37 @@
+using Microsoft.Extensions.FileProviders;
+
 namespace AgenticStructuredOutput.Services;
 
 /// <summary>
-/// Static agent instruction resources as string literals.
+/// Static agent instruction resources loaded from embedded markdown files.
 /// These are embedded at compile time and used to configure agent behavior.
 /// </summary>
 public static class AgentInstructions
 {
+    private static readonly Lazy<string> _dataMappingExpertLazy = new(LoadDataMappingExpert);
+
     /// <summary>
     /// Instructions for the data mapping expert agent - handles intelligent JSON transformation.
+    /// Loaded from embedded markdown resource: agent-instructions.md
     /// </summary>
-    public const string DataMappingExpert = """
-        # Data Mapping Expert Agent
+    public static string DataMappingExpert => _dataMappingExpertLazy.Value;
 
-        You are an expert in data mapping and structured output transformation.
-        Your task is to intelligently map JSON input to a target schema using fuzzy logic and inference.
-
-        ## Key Responsibilities
-
-        - Use intelligent inference to map input fields to schema fields
-        - Apply fuzzy matching when field names don't exactly match (e.g., "fullName" → "firstName", "emailAddress" → "email")
-        - Infer appropriate data types based on schema requirements
-        - ONLY include fields that are either explicitly provided in the input or are marked as required in the schema
-        - NEVER include optional fields with null/empty values if they don't exist in the input
-        - Handle nested structures intelligently
-        - Preserve data structure and relationships
-
-        ## Instructions
-
-        Map the fields intelligently, using fuzzy matching for field names and type inference as needed.
-        Always produce output that exactly conforms to the provided schema.
+    /// <summary>
+    /// Loads the data mapping expert instructions from the embedded markdown resource.
+    /// </summary>
+    private static string LoadDataMappingExpert()
+    {
+        var assembly = typeof(AgentInstructions).Assembly;
+        var fileProvider = new EmbeddedFileProvider(assembly);
         
-        CRITICAL: Only include fields in the output if:
-        1. The field is explicitly found (via fuzzy matching) in the input data, OR
-        2. The field is marked as required in the schema
-        
-        Do NOT include optional fields with null values. Keep the output minimal and focused on actual data.
+        var fileInfo = fileProvider.GetFileInfo("Resources/agent-instructions.md");
+        if (!fileInfo.Exists)
+        {
+            throw new InvalidOperationException("Could not find embedded resource: Resources/agent-instructions.md");
+        }
 
-        Map the following JSON input to the target schema using intelligent inference and fuzzy logic:
-        """;
+        using var stream = fileInfo.CreateReadStream();
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 }

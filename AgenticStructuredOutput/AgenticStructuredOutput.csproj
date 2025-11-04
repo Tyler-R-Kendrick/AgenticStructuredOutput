@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources/schema.json" />
+    <EmbeddedResource Include="Resources/agent-instructions.md" />
   </ItemGroup>
 
 </Project>

@@ -1,37 +1,15 @@
-using System.Text.Json;
 using Json.Schema;
 using Json.More;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using A2A;
-using AgenticStructuredOutput.Models;
 
 namespace AgenticStructuredOutput.Services;
 
-/// <summary>
-/// Business logic layer for agent execution and request/response handling.
-/// Encapsulates all concerns related to processing agent requests.
-/// </summary>
-public interface IAgentExecutionService
-{
-    /// <summary>
-    /// Initializes the agent with the default embedded schema at startup.
-    /// Should be called once during application initialization.
-    /// </summary>
-    Task InitializeAsync();
-
-    /// <summary>
-    /// Gets the initialized agent instance.
-    /// </summary>
-    AIAgent? Agent { get; }
-
-    /// <summary>
-    /// Gets the A2A agent card metadata.
-    /// </summary>
-    AgentCard AgentCard { get; }
-}
-
-public class AgentExecutionService(IAgentFactory agentFactory, ILogger<AgentExecutionService> logger) : IAgentExecutionService
+public class AgentExecutionService(
+    IAgentFactory agentFactory,
+    ILogger<AgentExecutionService> logger)
+    : IAgentExecutionService
 {
     private readonly IAgentFactory _agentFactory = agentFactory;
     private readonly ILogger<AgentExecutionService> _logger = logger;

@@ -3,11 +3,6 @@ using Microsoft.Extensions.AI;
 
 namespace AgenticStructuredOutput.Services;
 
-public interface IAgentFactory
-{
-    Task<AIAgent> CreateDataMappingAgentAsync(ChatOptions? chatOptions = null);
-}
-
 public class AgentFactory(IChatClient chatClient, ILogger<AgentFactory> logger) : IAgentFactory
 {
     private readonly IChatClient _chatClient = chatClient;
@@ -23,7 +18,9 @@ public class AgentFactory(IChatClient chatClient, ILogger<AgentFactory> logger) 
             ChatOptions = chatOptions
         });
 
-        _logger.LogInformation("Created AIAgent '{AgentName}' with data mapping instructions", "DataMappingExpert");
+        _logger.LogInformation(
+            "Created AIAgent '{AgentName}' with data mapping instructions",
+            "DataMappingExpert");
         
         return Task.FromResult<AIAgent>(agent);
     }
