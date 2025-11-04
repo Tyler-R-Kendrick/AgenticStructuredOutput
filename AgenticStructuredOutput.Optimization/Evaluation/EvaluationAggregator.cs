@@ -234,7 +234,10 @@ public class EvaluationAggregator : IEvaluationAggregator
         // For now, we'll create a new agent with custom instructions
         // This is a simplified approach - in production, we'd need a better way
         
-        var userMessage = $"Map the following input to the standard schema:\nInput:\n{testCase.Input}";
+        // Use the provided prompt, interpolating {input} if present, or appending input otherwise
+        var userMessage = prompt.Contains("{input}")
+            ? prompt.Replace("{input}", testCase.Input)
+            : $"{prompt}\nInput:\n{testCase.Input}";
         var response = await agent.RunAsync(userMessage, cancellationToken: cancellationToken);
 
         return response?.Text ?? string.Empty;
