@@ -23,4 +23,8 @@
     <EmbeddedResource Include="Resources/agent-instructions.md" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
+  </ItemGroup>
+
 </Project>

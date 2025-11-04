@@ -5,6 +5,8 @@
   </Folder>
   <Project Path="AgenticStructuredOutput/AgenticStructuredOutput.csproj" />
   <Project Path="AgenticStructuredOutput.Tests/AgenticStructuredOutput.Tests.csproj" />
+  <Project Path="AppHost/AppHost.csproj" />
+  <Project Path="ServiceDefaults/ServiceDefaults.csproj" />
   <Properties>
     <Property Name="Configuration" Value="Debug" />
     <Property Name="Platform" Value="AnyCPU" />

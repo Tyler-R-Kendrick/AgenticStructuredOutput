@@ -40,6 +40,16 @@ public static class ServiceCollectionExtensions
 
         // Register chat client as singleton (we'll create agents dynamically per request)
         services.AddSingleton(chatClient);
+        
+        // Register Langfuse client for prompt management
+        services.AddHttpClient<LangfuseClient>((sp, client) =>
+        {
+            var langfuseUrl = Environment.GetEnvironmentVariable("LANGFUSE_BASE_URL") 
+                ?? "http://langfuse-web:3000";
+            client.BaseAddress = new Uri(langfuseUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        
         return services;
     }
 
