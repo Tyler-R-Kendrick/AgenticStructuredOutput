@@ -19,8 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\schema.json" Link="Resources/schema.json" />
-    <EmbeddedResource Include="..\agent-instructions.md" Link="Resources/agent-instructions.md" />
+    <ProjectReference Include="..\AgenticStructuredOutput.Resources\AgenticStructuredOutput.Resources.csproj" />
   </ItemGroup>
 
 </Project>

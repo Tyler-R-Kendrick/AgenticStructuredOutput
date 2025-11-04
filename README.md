@@ -23,8 +23,10 @@ This implementation uses the **Microsoft Agent Framework** with A2A (Agent-to-Ag
 This repository contains multiple projects:
 
 - **AgenticStructuredOutput**: Main A2A service for JSON schema mapping
+- **AgenticStructuredOutput.Resources**: Shared embedded resources (schema, prompts, test cases)
 - **AgenticStructuredOutput.Tests**: Test suite with evaluation framework
 - **🆕 AgenticStructuredOutput.Optimization**: Auto-prompt-optimization library
+- **🆕 AgenticStructuredOutput.Simulation**: Eval generation library (optional)
 - **🆕 AgenticStructuredOutput.Optimization.CLI**: CLI tool for running optimization experiments
 
 ## Architecture
