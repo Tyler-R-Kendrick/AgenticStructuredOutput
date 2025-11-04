@@ -1,0 +1,2 @@
+{"testScenario": "Fuzzy matching", "input": "{\"first_name\": \"John\",\"last_name\": \"Doe\",\"email_address\": \"john.doe@example.com\"}", "expectedOutput": "{\"firstName\": \"John\",\"lastName\": \"Doe\",\"email\": \"john.doe@example.com\"}"}
+{"testScenario": "Nested extraction", "input": "{\"name\": {\"first\": \"Michael\",\"last\": \"Brown\"},\"contact\": {\"email\": \"michael.brown@example.com\"}}", "expectedOutput": "{\"firstName\": \"Michael\",\"lastName\": \"Brown\",\"email\": \"michael.brown@example.com\"}"}
