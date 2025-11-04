@@ -17,17 +17,14 @@ public class EvaluationAggregator : IEvaluationAggregator
     private readonly IAgentFactory _agentFactory;
     private readonly IChatClient _judgeClient;
     private readonly ILogger<EvaluationAggregator> _logger;
-    private readonly JsonElement _defaultSchema;
 
     public EvaluationAggregator(
         IAgentFactory agentFactory,
         IChatClient judgeClient,
-        JsonElement defaultSchema,
         ILogger<EvaluationAggregator> logger)
     {
         _agentFactory = agentFactory;
         _judgeClient = judgeClient;
-        _defaultSchema = defaultSchema;
         _logger = logger;
     }
 
@@ -214,7 +211,14 @@ public class EvaluationAggregator : IEvaluationAggregator
         EvalTestCase testCase,
         CancellationToken cancellationToken)
     {
-        var schema = testCase.Schema ?? _defaultSchema;
+        if (!testCase.Schema.HasValue)
+        {
+            throw new InvalidOperationException(
+                $"Test case '{testCase.Id}' must have a schema defined. " +
+                "Schema should be provided in each test case.");
+        }
+
+        var schema = testCase.Schema.Value;
         
         var agent = await _agentFactory.CreateDataMappingAgentAsync(new ChatOptions
         {

@@ -1,15 +1,23 @@
 # AgenticStructuredOutput.Optimization.CLI
 
-Command-line tool for running prompt optimization experiments.
+Command-line tool for running prompt optimization experiments. Reads and writes to solution-level resources, allowing source control to track prompt improvements.
 
 ## Overview
 
 This CLI tool demonstrates the auto-prompt-optimization framework in action. It:
-1. Loads the baseline agent prompt
-2. Evaluates it against test cases
-3. Applies mutation strategies to generate improved variants
-4. Iteratively optimizes using hill-climbing algorithm
-5. Reports results and saves the optimized prompt
+1. Loads the baseline agent prompt from solution root
+2. Loads schema and test cases
+3. Evaluates prompt against test cases
+4. Applies mutation strategies to generate improved variants
+5. Iteratively optimizes using hill-climbing algorithm
+6. **Saves optimized prompt back to solution root** (source control tracks changes)
+
+## Key Design
+
+- **Solution-Level Resources**: Reads `agent-instructions.md` and `schema.json` from solution root
+- **No Hardcoded Schema**: General-purpose optimizer, schema provided at runtime
+- **Source Control Integration**: Overwrites solution files, letting git handle approval/rejection
+- **No Code Duplication**: Uses shared `ResourceLoader` utility
 
 ## Usage
 
@@ -25,20 +33,47 @@ Or use OpenAI:
 export OPENAI_API_KEY="your-openai-key"
 ```
 
-### Running
+### Running with Defaults
 
+Loads resources from solution root:
 ```bash
 cd AgenticStructuredOutput.Optimization.CLI
 dotnet run
 ```
 
-### Output
+This will:
+- Load `../../agent-instructions.md` (solution root)
+- Load `../../schema.json` (solution root)
+- Use hardcoded demo test cases
+- Run 5 iterations of optimization
+- **Save improved prompt back to `../../agent-instructions.md`**
+
+### Running with Custom Paths
+
+```bash
+dotnet run -- \
+  --schema /path/to/custom-schema.json \
+  --prompt /path/to/custom-prompt.md \
+  --test-cases /path/to/test-cases.jsonl \
+  --max-iterations 10
+```
+
+### Command-Line Arguments
+
+- `--schema <path>`: Path to schema JSON file (default: solution root/schema.json)
+- `--prompt <path>`: Path to prompt file (default: solution root/agent-instructions.md)
+- `--test-cases <path>`: Path to JSONL test cases file (default: demo cases)
+- `--max-iterations <n>`: Maximum optimization iterations (default: 5)
+- `--verbose`: Show detailed error stack traces
+
+## Output
 
 The tool will:
-1. Display baseline metrics
-2. Show progress through iterations
-3. Report final optimization results
-4. Save optimized prompt to `optimized-prompt.md`
+1. Display configuration and loaded resources
+2. Show baseline metrics
+3. Display progress through iterations
+4. Report final optimization results
+5. **Overwrite the prompt file with optimized version**
 
 ### Example Output
 
@@ -47,26 +82,20 @@ The tool will:
 ║   AgenticStructuredOutput - Prompt Optimization CLI      ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Baseline Prompt Length: 1234 characters
+Configuration:
+  Schema: (solution root)/schema.json
+  Prompt: (solution root)/agent-instructions.md
+  Test Cases: (hardcoded demo cases)
+  Max Iterations: 5
 
+Loading resources from solution root...
+Baseline Prompt Length: 1234 characters
 Loaded 3 test cases
 
 Starting optimization...
-Max Iterations: 5
 Enabled Strategies: AddExamples, AddConstraints
 
-info: AgenticStructuredOutput.Optimization.Evaluation.EvaluationAggregator[0]
-      Evaluating prompt across 3 test cases
-info: AgenticStructuredOutput.Optimization.Core.IterativeOptimizer[0]
-      Iteration 1/5
-info: AgenticStructuredOutput.Optimization.Core.IterativeOptimizer[0]
-        Strategy 'AddExamples': Composite=3.85 (Δ=+0.23)
-info: AgenticStructuredOutput.Optimization.Core.IterativeOptimizer[0]
-        Strategy 'AddConstraints': Composite=3.92 (Δ=+0.30)
-info: AgenticStructuredOutput.Optimization.Core.IterativeOptimizer[0]
-      ✓ Accepted: Improvement of +0.30
-
-...
+[... optimization progress ...]
 
 ═══════════════════════════════════════════════════════════
 OPTIMIZATION RESULTS
@@ -92,91 +121,37 @@ Iteration History:
    4. ✓ AddConstraints       Score: 4.12 (Δ +0.07)
    5. ✓ SimplifyLanguage     Score: 4.15 (Δ +0.03)
 
-Optimized prompt saved to: /path/to/optimized-prompt.md
+✓ Optimized prompt saved to: /path/to/solution/agent-instructions.md
+  (Source control will track this change)
 ```
 
-## Configuration
+## Source Control Workflow
 
-Modify `Program.cs` to adjust optimization settings:
+After optimization:
 
-```csharp
-var config = new OptimizationConfig
-{
-    MaxIterations = 10,              // Number of optimization iterations
-    ImprovementThreshold = 0.05,     // Minimum improvement required
-    EnabledStrategies = new List<string>
-    {
-        "AddExamples",               // Add few-shot examples
-        "AddConstraints",            // Add explicit rules
-        "RephraseInstructions",      // Rephrase for clarity
-        "SimplifyLanguage"           // Reduce verbosity
-    },
-    MetricWeights = new Dictionary<string, double>
-    {
-        { "Relevance", 1.0 },
-        { "Correctness", 1.5 },      // Emphasize correctness
-        { "Completeness", 1.0 },
-        { "Grounding", 1.25 }
-    },
-    ParallelEvaluation = true,
-    MaxParallelTasks = 4
-};
+1. **Review changes**: `git diff agent-instructions.md`
+2. **Accept**: `git add agent-instructions.md && git commit -m "Optimize agent prompt"`
+3. **Reject**: `git checkout agent-instructions.md`
+
+This workflow ensures human approval of AI-generated prompt changes.
+
+## Test Case Format
+
+Load test cases from JSONL file:
+
+```jsonl
+{"id": "test-001", "evaluationType": "Relevance", "testScenario": "Simple mapping", "input": "{...}", "expectedOutput": "{...}"}
+{"id": "test-002", "evaluationType": "Correctness", "testScenario": "Nested structure", "input": "{...}"}
 ```
 
-## Test Cases
+Schema is loaded separately and applied to all test cases that don't specify their own schema.
 
-The demo uses a small set of hardcoded test cases. For production:
+## Architecture
 
-1. Load test cases from JSONL file:
-```csharp
-var testCases = File.ReadAllLines("test-cases-eval.jsonl")
-    .Select(line => JsonSerializer.Deserialize<EvalTestCase>(line))
-    .ToList();
-```
-
-2. Use the test cases from the Tests project:
-```csharp
-var testCasesPath = Path.Combine(
-    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
-    "..",
-    "..",
-    "AgenticStructuredOutput.Tests",
-    "Resources",
-    "test-cases-eval.jsonl"
-);
-```
-
-## Customization
-
-### Custom Mutation Strategies
-
-Add your own strategies:
-
-```csharp
-services.AddSingleton<IEnumerable<IPromptMutationStrategy>>(sp =>
-{
-    return new List<IPromptMutationStrategy>
-    {
-        new AddExamplesStrategy(),
-        new AddConstraintsStrategy(),
-        new RephraseInstructionsStrategy(),
-        new SimplifyLanguageStrategy(),
-        new MyCustomStrategy()  // Add your own!
-    };
-});
-```
-
-### Custom Evaluation
-
-Use different evaluators or test cases:
-
-```csharp
-services.AddSingleton<IEvaluationAggregator>(sp =>
-{
-    // Use custom evaluators, judge model, or test cases
-    return new EvaluationAggregator(...);
-});
-```
+- **ResourceLoader**: Shared utility for loading/saving solution-level resources
+- **No Schema Dependency**: EvaluationAggregator doesn't require schema in constructor
+- **Test Case Schema**: Each test case has its own schema (or inherits from loaded default)
+- **General Purpose**: Works with any schema/prompt combination
 
 ## Performance
 
@@ -188,7 +163,7 @@ services.AddSingleton<IEvaluationAggregator>(sp =>
 ### Optimization Tips
 - Use fewer test cases for faster iteration during development
 - Enable parallel evaluation for better performance
-- Reduce `MaxIterations` for quick experiments
+- Reduce `--max-iterations` for quick experiments
 - Use cheaper judge models if cost is a concern
 
 ## Troubleshooting
@@ -196,28 +171,16 @@ services.AddSingleton<IEvaluationAggregator>(sp =>
 ### "No API key found"
 Set `GITHUB_TOKEN` or `OPENAI_API_KEY` environment variable.
 
-### "GitHub Models not accessible"
-Check that your GitHub token has appropriate permissions.
+### "Could not find solution root"
+Ensure you're running from within the repository. The tool walks up directories looking for .slnx or .sln files.
 
-### Slow execution
-- Reduce test case count
-- Reduce `MaxIterations`
-- Increase `MaxParallelTasks`
+### "Schema file not found"
+Ensure `schema.json` exists in the solution root, or provide `--schema` argument.
 
-### Poor optimization results
-- Add more diverse test cases
-- Enable more mutation strategies
-- Adjust metric weights
-- Increase `MaxIterations`
-
-## Future Enhancements
-
-- Load test cases from file (JSONL, JSON, CSV)
-- Export results to file (JSON, Markdown, HTML)
-- Compare multiple optimization runs
-- Visualize optimization progress (charts)
-- Interactive mode (choose strategies per iteration)
-- Batch optimization (multiple prompts at once)
+### "Test case must have a schema defined"
+Each test case needs a schema. Either:
+- Let test cases inherit from loaded schema (default behavior)
+- Provide schema in each test case JSON
 
 ## License
 

@@ -30,8 +30,11 @@ This project implements a .NET-native prompt optimization framework that automat
 
 ## Core Components
 
+### Utilities
+- **`ResourceLoader`**: Shared utility for loading/saving solution-level resources (schema, prompts)
+
 ### Models
-- **`EvalTestCase`**: Test case for evaluation
+- **`EvalTestCase`**: Test case for evaluation (includes schema per test case)
 - **`AggregatedMetrics`**: Metrics aggregated across test cases
 - **`OptimizationConfig`**: Configuration for optimization
 - **`OptimizationResult`**: Results of optimization run
@@ -39,10 +42,13 @@ This project implements a .NET-native prompt optimization framework that automat
 
 ### Interfaces
 - **`IPromptOptimizer`**: Main optimization interface
-- **`IEvaluationAggregator`**: Evaluates and aggregates metrics
+- **`IEvaluationAggregator`**: Evaluates and aggregates metrics (no hardcoded schema)
 - **`IPromptMutationStrategy`**: Strategy for generating prompt variants
 
 ### Implementations
+
+#### Resource Management
+- **`ResourceLoader`**: Loads resources from solution root, walks up directory tree to find .slnx/.sln file
 
 #### Mutation Strategies
 1. **`AddExamplesStrategy`**: Adds few-shot examples to demonstrate desired mappings

@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources/schema.json" />
-    <EmbeddedResource Include="Resources/agent-instructions.md" />
+    <EmbeddedResource Include="..\schema.json" Link="Resources/schema.json" />
+    <EmbeddedResource Include="..\agent-instructions.md" Link="Resources/agent-instructions.md" />
   </ItemGroup>
 
 </Project>
