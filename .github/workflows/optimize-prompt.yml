@@ -66,7 +66,7 @@ jobs:
           dotnet run --configuration Release --no-build -- $ARGS 2>&1 | tee optimization-output.log
           
           # Store exit code
-          EXIT_CODE=${PIPEFAIL[0]}
+          EXIT_CODE=${PIPESTATUS[0]}
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
           
           # Move output log to artifacts directory
