@@ -1,3 +1,11 @@
+---
+applies_to:
+  - "**/*.cs"
+  - "**/*.csproj"
+  - "**/*.json"
+  - "**/README.md"
+---
+
 # Copilot Instructions for AgenticStructuredOutput
 
 ## Project Overview
