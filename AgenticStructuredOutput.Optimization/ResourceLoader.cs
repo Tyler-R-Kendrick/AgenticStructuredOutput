@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgenticStructuredOutput.Optimization.Models;
 
 namespace AgenticStructuredOutput.Optimization;
 
@@ -87,5 +88,54 @@ public static class ResourceLoader
     public static string GetResourcePath(string fileName)
     {
         return Path.Combine(GetSolutionRoot(), fileName);
+    }
+
+    /// <summary>
+    /// Loads test cases from a JSONL file.
+    /// Each line in the file should be a JSON object representing an EvalTestCase.
+    /// If test cases don't have a schema, the provided default schema is applied.
+    /// </summary>
+    /// <param name="testCasesPath">Path to JSONL file. If null, loads from solution root/test-cases-eval.jsonl</param>
+    /// <param name="defaultSchema">Default schema to apply to test cases that don't specify one</param>
+    /// <returns>List of evaluation test cases</returns>
+    public static List<EvalTestCase> LoadTestCases(string? testCasesPath = null, JsonElement? defaultSchema = null)
+    {
+        var path = testCasesPath ?? Path.Combine(GetSolutionRoot(), "test-cases-eval.jsonl");
+        
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException(
+                $"Test cases file not found at: {path}. " +
+                "Expected test-cases-eval.jsonl in solution root or provide --test-cases argument.", 
+                path);
+        }
+
+        var testCases = new List<EvalTestCase>();
+        var lines = File.ReadAllLines(path);
+
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var testCase = JsonSerializer.Deserialize<EvalTestCase>(line);
+            if (testCase != null)
+            {
+                // If test case doesn't have schema and default is provided, use the default
+                if (!testCase.Schema.HasValue && defaultSchema.HasValue)
+                {
+                    testCase.Schema = defaultSchema.Value;
+                }
+                testCases.Add(testCase);
+            }
+        }
+
+        if (testCases.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"No valid test cases found in file: {path}. " +
+                "Ensure file contains valid JSONL format with EvalTestCase objects.");
+        }
+
+        return testCases;
     }
 }
