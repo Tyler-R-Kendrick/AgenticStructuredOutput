@@ -25,9 +25,8 @@ public partial class AgentEvaluationTests : AgentTestHarness
         base.SetupDefaultSchema();
         
         // Initialize the judge model client for evaluation
-        _judgeModelClient = new AzureInferenceChatClientBuilder()
-            .UseGitHubModelsEndpoint()
-            .WithApiKey()
+        _judgeModelClient = AzureInferenceChatClientBuilder
+            .CreateFromEnvironment()
             .BuildIChatClient();
         
         LogSync("✓ Judge model client initialized");

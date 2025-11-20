@@ -5,98 +5,79 @@ using System.ClientModel;
 namespace AgenticStructuredOutput.Extensions;
 
 /// <summary>
-/// Fluent builder for creating and configuring OpenAI ChatClient instances targeting GitHub Models.
+/// Builds Microsoft.Extensions.AI chat clients configured for the GitHub Models endpoint.
+/// Consumes a fully populated <see cref="AzureAIInferenceOptions"/> instance instead of overriding configuration manually.
 /// </summary>
-public class AzureInferenceChatClientBuilder
+public sealed class AzureInferenceChatClientBuilder(AzureAIInferenceOptions options)
 {
-    private string? _apiKey;
-    private string _modelId = "openai/gpt-4o-mini";
-    private string _endpoint = "https://models.github.ai/inference";
+    private readonly AzureAIInferenceOptions _options = options ?? throw new ArgumentNullException(nameof(options));
 
     /// <summary>
-    /// Overrides the default model identifier.
-    /// </summary>
-    public AzureInferenceChatClientBuilder WithModelId(string? modelId)
-    {
-        if (!string.IsNullOrWhiteSpace(modelId))
-        {
-            _modelId = modelId;
-        }
-
-        return this;
-    }
-
-    /// <summary>
-    /// Overrides the default inference endpoint.
-    /// </summary>
-    public AzureInferenceChatClientBuilder WithEndpoint(string? endpoint)
-    {
-        if (!string.IsNullOrWhiteSpace(endpoint))
-        {
-            _endpoint = endpoint;
-        }
-
-        return this;
-    }
-
-    /// <summary>
-    /// Loads the API key from environment variables with fallback options.
-    /// Tries in order: GITHUB_TOKEN, OPENAI_API_KEY, or provided fallback.
-    /// </summary>
-    public AzureInferenceChatClientBuilder WithApiKey(string? fallbackKey = "GITHUB_TOKEN")
-    {
-        _apiKey = fallbackKey
-            ?? throw new InvalidOperationException(
-                "No API key found in GITHUB_TOKEN or OPENAI_API_KEY environment variables, and no fallback provided");
-        return this;
-    }
-
-    /// <summary>
-    /// Uses the GitHub Models endpoint explicitly.
-    /// </summary>
-    public AzureInferenceChatClientBuilder UseGitHubModelsEndpoint()
-    {
-        _endpoint = "https://models.github.ai/inference";
-        return this;
-    }
-
-    /// <summary>
-    /// Validates the current configuration before building.
-    /// </summary>
-    private void Validate()
-    {
-        if (string.IsNullOrWhiteSpace(_apiKey))
-        {
-            throw new InvalidOperationException(
-                "API key is required. Use WithApiKey(), WithEnvironmentApiKey(), or WithEnvironmentApiKeyOrDefault()");
-        }
-
-        if (string.IsNullOrWhiteSpace(_modelId))
-        {
-            throw new InvalidOperationException("Model ID is required before building the chat client.");
-        }
-
-        if (string.IsNullOrWhiteSpace(_endpoint))
-        {
-            throw new InvalidOperationException("Endpoint is required before building the chat client.");
-        }
-    }
-
-    /// <summary>
-    /// Builds and returns an IChatClient with the configured settings.
+    /// Creates an <see cref="IChatClient"/> using the supplied options.
     /// </summary>
     public IChatClient BuildIChatClient()
     {
         Validate();
 
-        var apiKeyCredential = new ApiKeyCredential(_apiKey!);
+        var apiKeyCredential = new ApiKeyCredential(_options.ApiKey!);
         var clientOptions = new OpenAIClientOptions
         {
-            Endpoint = new Uri(_endpoint),
+            Endpoint = new Uri(_options.Endpoint)
         };
 
         var openAiClient = new OpenAIClient(apiKeyCredential, clientOptions);
-        var chatClient = openAiClient.GetChatClient(_modelId);
+        var chatClient = openAiClient.GetChatClient(_options.ModelId);
         return chatClient.AsIChatClient();
+    }
+
+    /// <summary>
+    /// Creates a builder using API key information sourced from environment variables.
+    /// Useful for integration tests and CLI tools that are not using DI configuration binding.
+    /// </summary>
+    public static AzureInferenceChatClientBuilder CreateFromEnvironment(string? modelId = null)
+    {
+        var options = CreateOptionsFromEnvironment(modelId);
+        return new AzureInferenceChatClientBuilder(options);
+    }
+
+    /// <summary>
+    /// Creates options using the standard environment fallback chain.
+    /// </summary>
+    public static AzureAIInferenceOptions CreateOptionsFromEnvironment(string? modelId = null)
+    {
+        var options = new AzureAIInferenceOptions
+        {
+            ModelId = string.IsNullOrWhiteSpace(modelId) ? "openai/gpt-4o-mini" : modelId,
+            ApiKey = Environment.GetEnvironmentVariable("GITHUB_TOKEN")?.Trim()
+        };
+        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        {
+            options.ApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")?.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        {
+            throw new InvalidOperationException("Environment variables GITHUB_TOKEN or OPENAI_API_KEY must be set to create chat client options.");
+        }
+
+        return options;
+    }
+
+    private void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            throw new InvalidOperationException("API key is required to build the chat client.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.ModelId))
+        {
+            throw new InvalidOperationException("Model ID is required before building the chat client.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.Endpoint))
+        {
+            throw new InvalidOperationException("Endpoint is required before building the chat client.");
+        }
     }
 }

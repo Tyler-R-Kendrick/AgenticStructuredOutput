@@ -56,9 +56,8 @@ class Program
                 services.AddSingleton<IEvaluationAggregator>(sp =>
                 {
                     var agentFactory = sp.GetRequiredService<Services.IAgentFactory>();
-                    var judgeClient = new AzureInferenceChatClientBuilder()
-                        .UseGitHubModelsEndpoint()
-                        .WithApiKey()
+                    var judgeClient = AzureInferenceChatClientBuilder
+                        .CreateFromEnvironment()
                         .BuildIChatClient();
                     var logger = sp.GetRequiredService<ILogger<EvaluationAggregator>>();
                     

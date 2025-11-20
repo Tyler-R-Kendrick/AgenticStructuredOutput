@@ -1,8 +1,5 @@
 using AgenticStructuredOutput.Services;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Configuration;
-using System.Linq;
 
 namespace AgenticStructuredOutput.Extensions;
 
@@ -46,7 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAgentFactory, AgentFactory>();
         services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
 
-        services.AddSingleton<IChatClient>(provider =>
+        services.AddSingleton(provider =>
         {
             AzureAIInferenceOptions options = new();
 
@@ -57,36 +54,38 @@ public static class ServiceCollectionExtensions
             // Allow explicit overrides via delegate
             configureOptions?.Invoke(options);
 
-            var apiKey = ResolveApiKey(options);
+            EnsureApiKey(options);
 
-            var builder = new AzureInferenceChatClientBuilder()
-                .WithApiKey(apiKey)
-                .WithModelId(options.ModelId)
-                .WithEndpoint(options.Endpoint);
-
+            var builder = new AzureInferenceChatClientBuilder(options);
             return builder.BuildIChatClient();
         });
 
         return services;
     }
 
-    private static string ResolveApiKey(AzureAIInferenceOptions options)
+    private static void EnsureApiKey(AzureAIInferenceOptions options)
     {
-        var apiKey = new[]
-            {
-                options.ApiKey,
-                Environment.GetEnvironmentVariable("GITHUB_TOKEN"),
-                Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            }
-            .Select(value => value?.Trim())
-            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (!string.IsNullOrWhiteSpace(options.ApiKey))
         {
-            throw new InvalidOperationException(
-                "No API key configured. Provide AzureAIInference:ApiKey via appsettings/user secrets or set GITHUB_TOKEN / OPENAI_API_KEY environment variables.");
+            options.ApiKey = options.ApiKey.Trim();
+            return;
         }
 
-        return apiKey!;
+        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (!string.IsNullOrWhiteSpace(githubToken))
+        {
+            options.ApiKey = githubToken.Trim();
+            return;
+        }
+
+        var openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (!string.IsNullOrWhiteSpace(openAiKey))
+        {
+            options.ApiKey = openAiKey.Trim();
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "No API key configured. Provide AzureAIInference:ApiKey via appsettings/user secrets or set GITHUB_TOKEN / OPENAI_API_KEY environment variables.");
     }
 }
