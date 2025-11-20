@@ -1,10 +1,20 @@
 using AgenticStructuredOutput.Extensions;
 using AgenticStructuredOutput.Services;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Expand configuration sources so secrets can come from appsettings, user secrets, or environment
+builder.Configuration
+    .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
+
 // Register all services
-builder.Services.AddAgentServices();
+builder.Services.AddAgentServices(builder.Configuration);
 
 var app = builder.Build();
 

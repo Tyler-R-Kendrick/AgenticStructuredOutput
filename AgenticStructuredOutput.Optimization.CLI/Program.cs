@@ -58,7 +58,7 @@ class Program
                     var agentFactory = sp.GetRequiredService<Services.IAgentFactory>();
                     var judgeClient = new AzureInferenceChatClientBuilder()
                         .UseGitHubModelsEndpoint()
-                        .WithEnvironmentApiKey()
+                        .WithApiKey()
                         .BuildIChatClient();
                     var logger = sp.GetRequiredService<ILogger<EvaluationAggregator>>();
                     

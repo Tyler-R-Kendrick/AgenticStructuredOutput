@@ -6,7 +6,7 @@ namespace AgenticStructuredOutput.Extensions;
 public class AzureAIInferenceOptions
 {
     /// <summary>
-    /// The API key to use. Defaults to GITHUB_TOKEN environment variable.
+    /// The API key to use. Can be supplied via configuration (appsettings, user secrets) or environment variables.
     /// </summary>
     public string? ApiKey { get; set; }
 
@@ -16,7 +16,7 @@ public class AzureAIInferenceOptions
     public string Endpoint { get; set; } = "https://models.github.ai/inference";
 
     /// <summary>
-    /// The model ID to use for inference. Defaults to "openai/gpt-4o".
+    /// The model ID to use for inference. Defaults to "openai/gpt-4o-mini".
     /// </summary>
-    public string ModelId { get; set; } = "openai/gpt-4o";
+    public string ModelId { get; set; } = "openai/gpt-4o-mini";
 }

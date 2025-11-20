@@ -1,8 +1,8 @@
+using AgenticStructuredOutput.Services;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Agents.AI;
-using A2A;
-using AgenticStructuredOutput.Services;
+using System.Linq;
 
 namespace AgenticStructuredOutput.Extensions;
 
@@ -18,30 +18,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentServices(
         this IServiceCollection services,
         Action<AzureAIInferenceOptions>? configureOptions = null)
-    {
-        services.AddSingleton<IAgentFactory, AgentFactory>();
-        services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
-
-        // Configure options with defaults
-        AzureAIInferenceOptions options = new()
-        {
-            ApiKey = Environment.GetEnvironmentVariable("GITHUB_TOKEN")
-        };
-        configureOptions?.Invoke(options);
-
-        // Resolve API key: explicit config > environment variable > fallback
-        var apiKey = options.ApiKey ?? throw new InvalidOperationException(
-                $"No API key configured. Set GITHUB_TOKEN environment variable or provide ApiKey in AzureAIInferenceOptions.");
-
-        // Create chat client using builder for consistency
-        var chatClient = new AzureInferenceChatClientBuilder()
-            .WithApiKey(apiKey)
-            .BuildIChatClient();
-
-        // Register chat client as singleton (we'll create agents dynamically per request)
-        services.AddSingleton(chatClient);
-        return services;
-    }
+        => services.AddAgentServicesInternal(configuration: null, configureOptions);
 
     /// <summary>
     /// Adds chat client services configured from IConfiguration.
@@ -53,6 +30,63 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentServices(
         this IServiceCollection services,
         IConfiguration configuration)
-        => services.AddAgentServices(options
-            => configuration.GetSection("AzureAIInference").Bind(options));
+        => services.AddAgentServicesInternal(configuration, configureOptions: null);
+
+    public static IServiceCollection AddAgentServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<AzureAIInferenceOptions>? configureOptions)
+        => services.AddAgentServicesInternal(configuration, configureOptions);
+
+    private static IServiceCollection AddAgentServicesInternal(
+        this IServiceCollection services,
+        IConfiguration? configuration,
+        Action<AzureAIInferenceOptions>? configureOptions)
+    {
+        services.AddSingleton<IAgentFactory, AgentFactory>();
+        services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
+
+        services.AddSingleton<IChatClient>(provider =>
+        {
+            AzureAIInferenceOptions options = new();
+
+            // Bind from configuration sources (appsettings, user secrets, environment variables)
+            var config = configuration ?? provider.GetService<IConfiguration>();
+            config?.GetSection("AzureAIInference").Bind(options);
+
+            // Allow explicit overrides via delegate
+            configureOptions?.Invoke(options);
+
+            var apiKey = ResolveApiKey(options);
+
+            var builder = new AzureInferenceChatClientBuilder()
+                .WithApiKey(apiKey)
+                .WithModelId(options.ModelId)
+                .WithEndpoint(options.Endpoint);
+
+            return builder.BuildIChatClient();
+        });
+
+        return services;
+    }
+
+    private static string ResolveApiKey(AzureAIInferenceOptions options)
+    {
+        var apiKey = new[]
+            {
+                options.ApiKey,
+                Environment.GetEnvironmentVariable("GITHUB_TOKEN"),
+                Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+            }
+            .Select(value => value?.Trim())
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                "No API key configured. Provide AzureAIInference:ApiKey via appsettings/user secrets or set GITHUB_TOKEN / OPENAI_API_KEY environment variables.");
+        }
+
+        return apiKey!;
+    }
 }
