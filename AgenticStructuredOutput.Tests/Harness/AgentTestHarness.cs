@@ -25,12 +25,7 @@ public abstract class AgentTestHarness
     {
         try
         {
-            var assembly = typeof(AgentFactory).Assembly;
-            var resourceName = "AgenticStructuredOutput.Resources.schema.json";
-            using var stream = assembly.GetManifestResourceStream(resourceName) 
-                ?? throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
-            using var reader = new StreamReader(stream);
-            var schemaJson = reader.ReadToEnd();
+            var schemaJson = EmbeddedSchemaLoader.LoadSchemaJson();
             var schemaDoc = JsonDocument.Parse(schemaJson);
             DefaultSchemaElement = schemaDoc.RootElement.Clone();
             

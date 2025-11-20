@@ -22,12 +22,12 @@ public static class AgentInstructions
     private static string LoadDataMappingExpert()
     {
         var assembly = typeof(AgentInstructions).Assembly;
-        var fileProvider = new EmbeddedFileProvider(assembly);
+        var fileProvider = new EmbeddedFileProvider(assembly, "AgenticStructuredOutput.Resources");
         
-        var fileInfo = fileProvider.GetFileInfo("Resources/agent-instructions.md");
+        var fileInfo = fileProvider.GetFileInfo("agent-instructions.md");
         if (!fileInfo.Exists)
         {
-            throw new InvalidOperationException("Could not find embedded resource: Resources/agent-instructions.md");
+            throw new InvalidOperationException("Could not find embedded resource: agent-instructions.md");
         }
 
         using var stream = fileInfo.CreateReadStream();
