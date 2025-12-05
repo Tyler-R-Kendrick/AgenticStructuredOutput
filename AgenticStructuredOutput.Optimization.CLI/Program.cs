@@ -85,18 +85,12 @@ class Program
 /// <summary>
 /// Handles the optimization workflow with proper logging abstraction.
 /// </summary>
-public class OptimizationRunner
+public class OptimizationRunner(
+    IPromptOptimizer optimizer,
+    ILogger<OptimizationRunner> logger)
 {
-    private readonly IPromptOptimizer _optimizer;
-    private readonly ILogger<OptimizationRunner> _logger;
-
-    public OptimizationRunner(
-        IPromptOptimizer optimizer,
-        ILogger<OptimizationRunner> logger)
-    {
-        _optimizer = optimizer;
-        _logger = logger;
-    }
+    private readonly IPromptOptimizer _optimizer = optimizer;
+    private readonly ILogger<OptimizationRunner> _logger = logger;
 
     public async Task<int> RunAsync(string[] args)
     {

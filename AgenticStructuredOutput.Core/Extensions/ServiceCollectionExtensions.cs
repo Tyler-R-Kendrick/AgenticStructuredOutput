@@ -1,5 +1,7 @@
 using AgenticStructuredOutput.Services;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgenticStructuredOutput.Extensions;
 
@@ -41,7 +43,6 @@ public static class ServiceCollectionExtensions
         Action<AzureAIInferenceOptions>? configureOptions)
     {
         services.AddSingleton<IAgentFactory, AgentFactory>();
-        services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
 
         services.AddSingleton(provider =>
         {

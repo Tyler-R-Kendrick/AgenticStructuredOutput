@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AgenticStructuredOutput.Resources\AgenticStructuredOutput.Resources.csproj" />
+    <ProjectReference Include="..\AgenticStructuredOutput.Core\AgenticStructuredOutput.Core.csproj" />
   </ItemGroup>
 
 </Project>

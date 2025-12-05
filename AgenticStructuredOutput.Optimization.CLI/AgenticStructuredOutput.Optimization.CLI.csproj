@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AgenticStructuredOutput\AgenticStructuredOutput.csproj" />
+    <ProjectReference Include="..\AgenticStructuredOutput.Core\AgenticStructuredOutput.Core.csproj" />
     <ProjectReference Include="..\AgenticStructuredOutput.Optimization\AgenticStructuredOutput.Optimization.csproj" />
   </ItemGroup>
 

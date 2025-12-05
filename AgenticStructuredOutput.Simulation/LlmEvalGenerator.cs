@@ -16,18 +16,12 @@ namespace AgenticStructuredOutput.Simulation;
 /// <summary>
 /// Generates evaluation test cases using an LLM agent based on a prompt and schema.
 /// </summary>
-public class LlmEvalGenerator : IEvalGenerator
+public class LlmEvalGenerator(
+    IAgentFactory agentFactory,
+    ILogger<LlmEvalGenerator> logger) : IEvalGenerator
 {
-    private readonly IAgentFactory _agentFactory;
-    private readonly ILogger<LlmEvalGenerator> _logger;
-
-    public LlmEvalGenerator(
-        IAgentFactory agentFactory,
-        ILogger<LlmEvalGenerator> logger)
-    {
-        _agentFactory = agentFactory;
-        _logger = logger;
-    }
+    private readonly IAgentFactory _agentFactory = agentFactory;
+    private readonly ILogger<LlmEvalGenerator> _logger = logger;
 
     public async Task<SimulationResult> GenerateTestCasesAsync(
         string prompt,

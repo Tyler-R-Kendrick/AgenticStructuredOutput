@@ -12,21 +12,14 @@ namespace AgenticStructuredOutput.Optimization.Evaluation;
 /// <summary>
 /// Aggregates evaluation metrics across multiple test cases.
 /// </summary>
-public class EvaluationAggregator : IEvaluationAggregator
+public class EvaluationAggregator(
+    IAgentFactory agentFactory,
+    IChatClient judgeClient,
+    ILogger<EvaluationAggregator> logger) : IEvaluationAggregator
 {
-    private readonly IAgentFactory _agentFactory;
-    private readonly IChatClient _judgeClient;
-    private readonly ILogger<EvaluationAggregator> _logger;
-
-    public EvaluationAggregator(
-        IAgentFactory agentFactory,
-        IChatClient judgeClient,
-        ILogger<EvaluationAggregator> logger)
-    {
-        _agentFactory = agentFactory;
-        _judgeClient = judgeClient;
-        _logger = logger;
-    }
+    private readonly IAgentFactory _agentFactory = agentFactory;
+    private readonly IChatClient _judgeClient = judgeClient;
+    private readonly ILogger<EvaluationAggregator> _logger = logger;
 
     public async Task<AggregatedMetrics> EvaluatePromptAsync(
         string prompt,

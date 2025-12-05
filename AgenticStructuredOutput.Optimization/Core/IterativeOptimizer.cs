@@ -8,21 +8,14 @@ namespace AgenticStructuredOutput.Optimization.Core;
 /// <summary>
 /// Implements hill-climbing optimization with random restarts and adaptive strategy selection.
 /// </summary>
-public class IterativeOptimizer : IPromptOptimizer
+public class IterativeOptimizer(
+    IEvaluationAggregator evaluationAggregator,
+    IEnumerable<IPromptMutationStrategy> strategies,
+    ILogger<IterativeOptimizer> logger) : IPromptOptimizer
 {
-    private readonly IEvaluationAggregator _evaluationAggregator;
-    private readonly IEnumerable<IPromptMutationStrategy> _strategies;
-    private readonly ILogger<IterativeOptimizer> _logger;
-
-    public IterativeOptimizer(
-        IEvaluationAggregator evaluationAggregator,
-        IEnumerable<IPromptMutationStrategy> strategies,
-        ILogger<IterativeOptimizer> logger)
-    {
-        _evaluationAggregator = evaluationAggregator;
-        _strategies = strategies;
-        _logger = logger;
-    }
+    private readonly IEvaluationAggregator _evaluationAggregator = evaluationAggregator;
+    private readonly IEnumerable<IPromptMutationStrategy> _strategies = strategies;
+    private readonly ILogger<IterativeOptimizer> _logger = logger;
 
     public async Task<OptimizationResult> OptimizeAsync(
         string baselinePrompt,
