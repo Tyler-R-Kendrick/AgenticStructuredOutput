@@ -28,6 +28,7 @@ This repository contains multiple projects:
 - **🆕 AgenticStructuredOutput.Optimization**: Auto-prompt-optimization library
 - **🆕 AgenticStructuredOutput.Simulation**: Eval generation library (optional)
 - **🆕 AgenticStructuredOutput.Optimization.CLI**: CLI tool for running optimization experiments
+- **🆕 AgenticStructuredOutput.Simulation.CLI**: CLI tool for generating evaluation datasets
 
 ## Architecture
 
@@ -272,6 +273,18 @@ dotnet run
 - [Optimization Library README](AgenticStructuredOutput.Optimization/README.md)
 - [CLI Tool README](AgenticStructuredOutput.Optimization.CLI/README.md)
 - [Architecture Decision Records (ADRs)](docs/adr/)
+
+### Simulation CLI
+
+Generate evaluation datasets directly from the Simulation library:
+
+```bash
+cd AgenticStructuredOutput.Simulation.CLI
+export GITHUB_TOKEN="your-token"
+dotnet run -- --count 20 --output ./generated-test-cases.jsonl
+```
+
+Use `--append` to merge into an existing JSONL file, and supply `--schema`/`--prompt` when referencing non-default resources. See [Simulation CLI README](AgenticStructuredOutput.Simulation.CLI/README.md) for full argument reference.
 
 ### Running Locally
 

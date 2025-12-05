@@ -1,3 +1,4 @@
+using AgenticStructuredOutput.Resources;
 using Microsoft.Extensions.FileProviders;
 
 namespace AgenticStructuredOutput.Services;
@@ -10,7 +11,7 @@ public static class EmbeddedSchemaLoader
     private const string ResourceNamespace = "AgenticStructuredOutput.Resources";
     private const string SchemaFileName = "schema.json";
     private static readonly EmbeddedFileProvider FileProvider =
-        new(typeof(EmbeddedSchemaLoader).Assembly, ResourceNamespace);
+        new(ResourceAssemblyMarker.Assembly, ResourceNamespace);
 
     public static string LoadSchemaJson()
     {

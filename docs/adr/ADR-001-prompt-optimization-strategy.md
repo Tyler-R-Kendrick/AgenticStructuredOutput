@@ -7,7 +7,7 @@
 
 ## Context
 
-AgenticStructuredOutput uses a fixed prompt (agent instructions) loaded from `Resources/agent-instructions.md` to perform JSON schema mapping. While the current prompt works reasonably well, we need an automated way to optimize prompts based on evaluation criteria and schema requirements. This is particularly important because:
+AgenticStructuredOutput uses a fixed prompt (agent instructions) loaded from the `AgenticStructuredOutput.Resources` project as an embedded `agent-instructions.md` file to perform JSON schema mapping. While the current prompt works reasonably well, we need an automated way to optimize prompts based on evaluation criteria and schema requirements. This is particularly important because:
 
 1. **Diverse Schema Requirements**: Different schemas may benefit from different prompt strategies
 2. **Evaluation Metrics**: We have existing LLM-based evaluation (Relevance, Correctness, Completeness, Grounding)

@@ -1,3 +1,4 @@
+using AgenticStructuredOutput.Resources;
 using Microsoft.Extensions.FileProviders;
 
 namespace AgenticStructuredOutput.Services;
@@ -8,6 +9,10 @@ namespace AgenticStructuredOutput.Services;
 /// </summary>
 public static class AgentInstructions
 {
+    private const string ResourceNamespace = "AgenticStructuredOutput.Resources";
+    private const string InstructionsFileName = "agent-instructions.md";
+    private static readonly EmbeddedFileProvider ResourceFileProvider =
+        new(ResourceAssemblyMarker.Assembly, ResourceNamespace);
     private static readonly Lazy<string> _dataMappingExpertLazy = new(LoadDataMappingExpert);
 
     /// <summary>
@@ -21,10 +26,7 @@ public static class AgentInstructions
     /// </summary>
     private static string LoadDataMappingExpert()
     {
-        var assembly = typeof(AgentInstructions).Assembly;
-        var fileProvider = new EmbeddedFileProvider(assembly, "AgenticStructuredOutput.Resources");
-        
-        var fileInfo = fileProvider.GetFileInfo("agent-instructions.md");
+        var fileInfo = ResourceFileProvider.GetFileInfo(InstructionsFileName);
         if (!fileInfo.Exists)
         {
             throw new InvalidOperationException("Could not find embedded resource: agent-instructions.md");
