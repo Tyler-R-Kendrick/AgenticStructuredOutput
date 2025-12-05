@@ -22,11 +22,6 @@ public class SimulationConfig
     };
     
     /// <summary>
-    /// Whether to generate expected outputs for test cases.
-    /// </summary>
-    public bool GenerateExpectedOutputs { get; set; } = false;
-    
-    /// <summary>
     /// Diversity factor for generated test cases (0.0 to 1.0).
     /// Higher values generate more diverse scenarios.
     /// </summary>

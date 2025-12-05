@@ -2,10 +2,14 @@ using AgenticStructuredOutput.Optimization.Models;
 using AgenticStructuredOutput.Services;
 using AgenticStructuredOutput.Simulation.Core;
 using AgenticStructuredOutput.Simulation.Models;
+using Json.Schema;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AgenticStructuredOutput.Simulation;
 
@@ -96,12 +100,19 @@ public class LlmEvalGenerator : IEvalGenerator
         try
         {
             // Create a simple agent for generation (no specific schema needed)
-            var agent = await _agentFactory.CreateDataMappingAgentAsync(new Microsoft.Extensions.AI.ChatOptions());
+            var agent = await _agentFactory.CreateDataMappingAgentAsync(new ChatOptions());
             
             var response = await agent.RunAsync(generationPrompt, cancellationToken: cancellationToken);
             var responseText = response?.Text ?? string.Empty;
 
-            return ParseTestCases(responseText, schema, config);
+            var parsedCases = ParseTestCases(responseText, schema);
+
+            if (parsedCases.Count > 0)
+            {
+                await PopulateExpectedOutputsAsync(parsedCases, schema, cancellationToken);
+            }
+
+            return parsedCases;
         }
         catch (Exception ex)
         {
@@ -156,55 +167,248 @@ public class LlmEvalGenerator : IEvalGenerator
 
     private List<EvalTestCase> ParseTestCases(
         string responseText,
-        JsonElement schema,
-        SimulationConfig config)
+        JsonElement schema)
     {
         var testCases = new List<EvalTestCase>();
-        var lines = responseText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var lines = responseText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         foreach (var line in lines)
         {
-            var trimmedLine = line.Trim();
-            
-            // Skip lines that are clearly not JSON
-            if (!trimmedLine.StartsWith("{")) continue;
+            if (!line.StartsWith("{", StringComparison.Ordinal))
+            {
+                continue;
+            }
 
             try
             {
-                // Parse the line as a partial test case (just the metadata)
-                using var doc = JsonDocument.Parse(trimmedLine);
+                using var doc = JsonDocument.Parse(line);
                 var root = doc.RootElement;
+
+                if (!TryNormalizeInputPayload(root, out var normalizedInput))
+                {
+                    _logger.LogWarning("Skipping generated test case without usable 'input': {Line}", line);
+                    continue;
+                }
 
                 var testCase = new EvalTestCase
                 {
                     Id = $"sim-{Guid.NewGuid().ToString()[..8]}",
-                    EvaluationType = root.TryGetProperty("evaluationType", out var evalType) 
-                        ? evalType.GetString() ?? "General" 
+                    EvaluationType = root.TryGetProperty("evaluationType", out var evalType)
+                        ? evalType.GetString() ?? "General"
                         : "General",
-                    TestScenario = root.TryGetProperty("testScenario", out var scenario) 
-                        ? scenario.GetString() ?? "" 
-                        : "",
-                    Input = root.TryGetProperty("input", out var input) 
-                        ? input.GetRawText() 
-                        : trimmedLine,
+                    TestScenario = root.TryGetProperty("testScenario", out var scenario)
+                        ? scenario.GetString() ?? string.Empty
+                        : string.Empty,
+                    Input = normalizedInput,
                     Schema = schema
                 };
-
-                // Optionally set expected output if generated
-                if (config.GenerateExpectedOutputs && root.TryGetProperty("expectedOutput", out var expectedOutput))
-                {
-                    testCase.ExpectedOutput = expectedOutput.GetRawText();
-                }
 
                 testCases.Add(testCase);
             }
             catch (JsonException ex)
             {
-                _logger.LogWarning(ex, "Failed to parse generated test case line: {Line}", trimmedLine);
+                _logger.LogWarning(ex, "Failed to parse generated test case line: {Line}", line);
             }
         }
 
         _logger.LogInformation("Parsed {Count} test cases from response", testCases.Count);
         return testCases;
     }
+
+    private async Task PopulateExpectedOutputsAsync(
+        List<EvalTestCase> testCases,
+        JsonElement defaultSchema,
+        CancellationToken cancellationToken)
+    {
+        var schemaContexts = new Dictionary<string, SchemaExecutionContext>(StringComparer.Ordinal);
+
+        foreach (var testCase in testCases)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var schemaElement = testCase.Schema ?? defaultSchema;
+            var schemaKey = schemaElement.GetRawText();
+
+            if (!schemaContexts.TryGetValue(schemaKey, out var context))
+            {
+                var compiledSchema = JsonSchema.FromText(schemaKey);
+                var agent = await _agentFactory.CreateDataMappingAgentAsync(new ChatOptions
+                {
+                    ResponseFormat = ChatResponseFormat.ForJsonSchema(
+                        schema: schemaElement,
+                        schemaName: "DynamicOutput",
+                        schemaDescription: "Intelligently mapped JSON output conforming to the provided schema"
+                    )
+                });
+
+                context = new SchemaExecutionContext(compiledSchema, agent);
+                schemaContexts[schemaKey] = context;
+            }
+
+            await GenerateExpectedOutputForCaseAsync(testCase, context, cancellationToken);
+        }
+    }
+
+    private async Task GenerateExpectedOutputForCaseAsync(
+        EvalTestCase testCase,
+        SchemaExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(testCase.Input))
+        {
+            _logger.LogWarning("Skipping expected output generation for {TestCaseId}: input is empty", testCase.Id);
+            return;
+        }
+
+        try
+        {
+            var prompt = BuildMappingPrompt(testCase.Input);
+            var response = await context.Agent.RunAsync(prompt, cancellationToken: cancellationToken);
+            var expectedOutput = response?.Text?.Trim();
+
+            if (string.IsNullOrWhiteSpace(expectedOutput))
+            {
+                _logger.LogWarning("Agent returned empty expected output for {TestCaseId}", testCase.Id);
+                return;
+            }
+
+            if (!TryValidateAgainstSchema(context.Validator, expectedOutput, out var validationError))
+            {
+                _logger.LogWarning(
+                    "Generated expected output failed schema validation for {TestCaseId}: {Error}",
+                    testCase.Id,
+                    validationError);
+                return;
+            }
+
+            testCase.ExpectedOutput = expectedOutput;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to generate expected output for test case {TestCaseId}", testCase.Id);
+        }
+    }
+
+    private static string BuildMappingPrompt(string normalizedInput)
+    {
+        return $"Map the following input JSON to the target schema and respond with valid JSON only.\nInput:\n{normalizedInput}";
+    }
+
+    private static bool TryNormalizeInputPayload(JsonElement root, out string normalized)
+    {
+        normalized = string.Empty;
+        if (!root.TryGetProperty("input", out var inputElement))
+        {
+            return false;
+        }
+
+        return TryNormalizeJsonPayload(inputElement, out normalized);
+    }
+
+    private static bool TryNormalizeJsonPayload(JsonElement element, out string normalized)
+    {
+        normalized = string.Empty;
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return TryNormalizeJsonPayload(element.GetString() ?? string.Empty, out normalized);
+        }
+
+        return TryNormalizeJsonPayload(element.GetRawText(), out normalized);
+    }
+
+    private static bool TryNormalizeJsonPayload(string raw, out string normalized)
+    {
+        normalized = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        if (TryParseJson(raw, out normalized))
+        {
+            return true;
+        }
+
+        try
+        {
+            var decoded = JsonSerializer.Deserialize<string>(raw);
+            return decoded is not null && TryParseJson(decoded, out normalized);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseJson(string text, out string normalized)
+    {
+        normalized = string.Empty;
+
+        try
+        {
+            var node = JsonNode.Parse(text);
+            if (node is null)
+            {
+                return false;
+            }
+
+            normalized = node.ToJsonString();
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryValidateAgainstSchema(JsonSchema schema, string jsonText, out string? error)
+    {
+        try
+        {
+            var node = JsonNode.Parse(jsonText);
+            if (node is null)
+            {
+                error = "Agent response was not valid JSON.";
+                return false;
+            }
+
+            var evaluation = schema.Evaluate(node);
+            if (evaluation.IsValid)
+            {
+                error = null;
+                return true;
+            }
+
+            if (evaluation.Errors is { Count: > 0 })
+            {
+                var builder = new StringBuilder();
+                foreach (var (keyword, message) in evaluation.Errors)
+                {
+                    if (builder.Length > 0)
+                    {
+                        builder.Append("; ");
+                    }
+                    builder.Append(keyword);
+                    builder.Append(':');
+                    builder.Append(' ');
+                    builder.Append(message);
+                }
+                error = builder.ToString();
+            }
+            else
+            {
+                error = "Schema validation failed.";
+            }
+
+            return false;
+        }
+        catch (JsonException)
+        {
+            error = "Agent response was not valid JSON.";
+            return false;
+        }
+    }
+
+    private sealed record SchemaExecutionContext(JsonSchema Validator, AIAgent Agent);
 }

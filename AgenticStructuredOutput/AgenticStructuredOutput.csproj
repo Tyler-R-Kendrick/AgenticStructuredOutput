@@ -24,13 +24,4 @@
     <ProjectReference Include="..\AgenticStructuredOutput.Resources\AgenticStructuredOutput.Resources.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\schema.json">
-      <LogicalName>AgenticStructuredOutput.Resources.schema.json</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Resources\agent-instructions.md">
-      <LogicalName>AgenticStructuredOutput.Resources.agent-instructions.md</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
 </Project>

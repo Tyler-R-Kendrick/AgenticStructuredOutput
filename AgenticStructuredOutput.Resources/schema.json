@@ -36,6 +36,10 @@
     "zipCode": {
       "type": "string",
       "description": "Customer's zip or postal code"
+    },
+    "ssn": {
+      "type": "string",
+      "description": "Customer's Social Security Number"
     }
   },
   "required": [

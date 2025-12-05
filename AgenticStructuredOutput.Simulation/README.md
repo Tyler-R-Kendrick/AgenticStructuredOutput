@@ -106,9 +106,6 @@ var config = new SimulationConfig
         "Grounding"       // Focus on data fidelity
     },
     
-    // Generate expected outputs (requires more LLM calls)
-    GenerateExpectedOutputs = false,
-    
     // Diversity factor (0.0 = conservative, 1.0 = highly creative)
     DiversityFactor = 0.7,
     
@@ -133,6 +130,7 @@ Each line is a JSON object with:
 - `testScenario`: Brief description
 - `input`: JSON input data as string
 - `schema`: (added during loading) JSON schema element
+- `expectedOutput`: LLM-generated response that already conforms to the schema
 
 ## Best Practices
 
