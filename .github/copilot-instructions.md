@@ -45,7 +45,7 @@ agent = await agentFactory.CreateDataMappingAgentAsync(new() {
 ## Critical Patterns & Conventions
 
 ### ChatCompletionsClient Initialization (Azure.AI.Inference)
-Use the **AzureInferenceChatClientBuilder** helper (located in `AgenticStructuredOutput.Tests/Builders/`):
+Use the **AzureInferenceChatClientBuilder** helper (located in `AgenticStructuredOutput/Extensions/`):
 ```csharp
 var client = new AzureInferenceChatClientBuilder()
     .UseGitHubModelsEndpoint()

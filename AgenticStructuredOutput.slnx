@@ -4,6 +4,10 @@
     <File Path="LICENSE" />
   </Folder>
   <Project Path="AgenticStructuredOutput/AgenticStructuredOutput.csproj" />
+  <Project Path="AgenticStructuredOutput.Resources/AgenticStructuredOutput.Resources.csproj" />
+  <Project Path="AgenticStructuredOutput.Optimization/AgenticStructuredOutput.Optimization.csproj" />
+  <Project Path="AgenticStructuredOutput.Optimization.CLI/AgenticStructuredOutput.Optimization.CLI.csproj" />
+  <Project Path="AgenticStructuredOutput.Simulation/AgenticStructuredOutput.Simulation.csproj" />
   <Project Path="AgenticStructuredOutput.Tests/AgenticStructuredOutput.Tests.csproj" />
   <Properties>
     <Property Name="Configuration" Value="Debug" />

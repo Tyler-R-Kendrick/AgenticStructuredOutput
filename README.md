@@ -16,6 +16,18 @@ This implementation uses the **Microsoft Agent Framework** with A2A (Agent-to-Ag
 - **Schema Validation**: Uses `JsonSchema.Net` to validate agent output against provided schema
 - **AI-Powered Fuzzy Mapping**: Intelligently maps fields like "fullName" → "name"
 - **Expert Agent Instructions**: Agent configured as data mapping expert
+- **🆕 Auto-Prompt-Optimization**: Automatically improves agent prompts based on evaluation metrics (see `AgenticStructuredOutput.Optimization`)
+
+## Projects
+
+This repository contains multiple projects:
+
+- **AgenticStructuredOutput**: Main A2A service for JSON schema mapping
+- **AgenticStructuredOutput.Resources**: Shared embedded resources (schema, prompts, test cases)
+- **AgenticStructuredOutput.Tests**: Test suite with evaluation framework
+- **🆕 AgenticStructuredOutput.Optimization**: Auto-prompt-optimization library
+- **🆕 AgenticStructuredOutput.Simulation**: Eval generation library (optional)
+- **🆕 AgenticStructuredOutput.Optimization.CLI**: CLI tool for running optimization experiments
 
 ## Architecture
 
@@ -238,6 +250,28 @@ dotnet build
 ```bash
 dotnet test --verbosity normal
 ```
+
+### Auto-Prompt-Optimization
+
+The project includes an auto-prompt-optimization framework to automatically improve agent prompts:
+
+**Run optimization experiment:**
+```bash
+cd AgenticStructuredOutput.Optimization.CLI
+export GITHUB_TOKEN="your-token"
+dotnet run
+```
+
+**Features:**
+- Evaluates prompts across multiple quality dimensions (Relevance, Correctness, Completeness, Grounding)
+- Applies mutation strategies (AddExamples, AddConstraints, RephraseInstructions, SimplifyLanguage)
+- Uses hill-climbing optimization with adaptive strategy selection
+- Tracks optimization history and saves improved prompts
+
+**See detailed documentation:**
+- [Optimization Library README](AgenticStructuredOutput.Optimization/README.md)
+- [CLI Tool README](AgenticStructuredOutput.Optimization.CLI/README.md)
+- [Architecture Decision Records (ADRs)](docs/adr/)
 
 ### Running Locally
 

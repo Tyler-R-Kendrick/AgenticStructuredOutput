@@ -14,13 +14,23 @@
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.1" />
     <PackageReference Include="Microsoft.Extensions.AI.AzureAIInference" Version="9.10.0-preview.1.25513.3" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.10.2-preview.1.25552.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="9.0.0" />
     <PackageReference Include="OpenAI" Version="2.6.0" />
     <PackageReference Include="System.Text.Json" Version="9.0.10" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources/schema.json" />
-    <EmbeddedResource Include="Resources/agent-instructions.md" />
+    <ProjectReference Include="..\AgenticStructuredOutput.Resources\AgenticStructuredOutput.Resources.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\schema.json">
+      <LogicalName>AgenticStructuredOutput.Resources.schema.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\agent-instructions.md">
+      <LogicalName>AgenticStructuredOutput.Resources.agent-instructions.md</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

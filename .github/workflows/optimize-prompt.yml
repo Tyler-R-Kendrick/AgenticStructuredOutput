@@ -1,0 +1,184 @@
+name: Optimize Agent Prompt
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_iterations:
+        description: 'Maximum optimization iterations'
+        required: false
+        default: '5'
+        type: string
+      test_cases_path:
+        description: 'Path to test cases JSONL file (default: test-cases-eval.jsonl)'
+        required: false
+        default: ''
+        type: string
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  optimize-prompt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore AgenticStructuredOutput.slnx
+      
+      - name: Build solution
+        run: dotnet build AgenticStructuredOutput.slnx --configuration Release --no-restore
+      
+      - name: Run optimization CLI
+        id: optimize
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd AgenticStructuredOutput.Optimization.CLI
+          
+          # Set default or custom max iterations
+          MAX_ITER="${{ inputs.max_iterations }}"
+          if [ -z "$MAX_ITER" ]; then
+            MAX_ITER="5"
+          fi
+          
+          # Build arguments
+          ARGS="--max-iterations $MAX_ITER"
+          
+          # Add custom test cases path if provided
+          if [ -n "${{ inputs.test_cases_path }}" ]; then
+            ARGS="$ARGS --test-cases ${{ inputs.test_cases_path }}"
+          fi
+          
+          echo "Running optimization with: $ARGS"
+          
+          # Run CLI and capture output
+          dotnet run --configuration Release --no-build -- $ARGS 2>&1 | tee optimization-output.log
+          
+          # Store exit code
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Move output log to artifacts directory
+          mkdir -p ../artifacts
+          mv optimization-output.log ../artifacts/
+        continue-on-error: true
+      
+      - name: Copy optimized prompt to artifacts
+        run: |
+          mkdir -p artifacts
+          
+          # Copy the optimized prompt (saved by CLI)
+          if [ -f "agent-instructions.md" ]; then
+            cp agent-instructions.md artifacts/optimized-prompt.md
+            echo "✓ Optimized prompt copied to artifacts"
+          else
+            echo "⚠ No optimized prompt found"
+          fi
+          
+          # Copy baseline for comparison
+          if git show HEAD:agent-instructions.md > artifacts/baseline-prompt.md 2>/dev/null; then
+            echo "✓ Baseline prompt copied to artifacts"
+          fi
+          
+          # Copy schema and test cases for reference
+          if [ -f "schema.json" ]; then
+            cp schema.json artifacts/
+          fi
+          
+          if [ -f "test-cases-eval.jsonl" ]; then
+            cp test-cases-eval.jsonl artifacts/
+          fi
+      
+      - name: Generate diff report
+        if: always()
+        run: |
+          cd artifacts
+          
+          if [ -f "baseline-prompt.md" ] && [ -f "optimized-prompt.md" ]; then
+            echo "# Prompt Optimization Diff" > diff-report.md
+            echo "" >> diff-report.md
+            echo "## Changes Made" >> diff-report.md
+            echo "" >> diff-report.md
+            echo '```diff' >> diff-report.md
+            diff -u baseline-prompt.md optimized-prompt.md >> diff-report.md || true
+            echo '```' >> diff-report.md
+            echo "" >> diff-report.md
+            echo "## Statistics" >> diff-report.md
+            echo "- Baseline length: $(wc -c < baseline-prompt.md) characters" >> diff-report.md
+            echo "- Optimized length: $(wc -c < optimized-prompt.md) characters" >> diff-report.md
+            echo "- Lines changed: $(diff -u baseline-prompt.md optimized-prompt.md | grep -c '^[+-]' || echo 0)" >> diff-report.md
+            echo "" >> diff-report.md
+            echo "## Optimization Log" >> diff-report.md
+            echo "" >> diff-report.md
+            echo "See \`optimization-output.log\` for full details." >> diff-report.md
+            
+            echo "✓ Diff report generated"
+          else
+            echo "⚠ Cannot generate diff - missing baseline or optimized prompt"
+          fi
+      
+      - name: Upload optimization artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: optimized-prompt-${{ github.run_number }}
+          path: artifacts/
+          retention-days: 90
+          if-no-files-found: warn
+      
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Prompt Optimization Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.optimize.outputs.exit_code }}" == "0" ]; then
+            echo "✅ **Optimization completed successfully**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Optimization completed with warnings or errors**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Max Iterations: ${{ inputs.max_iterations || '5' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Cases: ${{ inputs.test_cases_path || 'test-cases-eval.jsonl (default)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Run Number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "The following files have been saved as artifacts:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`optimized-prompt.md\` - The optimized agent prompt" >> $GITHUB_STEP_SUMMARY
+          echo "- \`baseline-prompt.md\` - The original prompt for comparison" >> $GITHUB_STEP_SUMMARY
+          echo "- \`optimization-output.log\` - Full CLI output with metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- \`diff-report.md\` - Diff between baseline and optimized prompt" >> $GITHUB_STEP_SUMMARY
+          echo "- \`schema.json\` - Schema used for optimization" >> $GITHUB_STEP_SUMMARY
+          echo "- \`test-cases-eval.jsonl\` - Test cases used for evaluation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the artifacts to review the optimized prompt" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review the diff report to see what changed" >> $GITHUB_STEP_SUMMARY
+          echo "3. If satisfied, manually commit the optimized prompt:" >> $GITHUB_STEP_SUMMARY
+          echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "   # Download and apply the optimized prompt" >> $GITHUB_STEP_SUMMARY
+          echo "   git checkout -b optimize-prompt-run-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "   # Copy optimized-prompt.md to agent-instructions.md" >> $GITHUB_STEP_SUMMARY
+          echo "   git add agent-instructions.md" >> $GITHUB_STEP_SUMMARY
+          echo "   git commit -m 'Apply optimized prompt from workflow run ${{ github.run_number }}'" >> $GITHUB_STEP_SUMMARY
+          echo "   git push origin optimize-prompt-run-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Check optimization status
+        if: steps.optimize.outputs.exit_code != '0'
+        run: |
+          echo "::warning::Optimization did not show improvement. Check artifacts for details."
+          exit 0  # Don't fail the workflow

@@ -1,0 +1,8 @@
+{"evaluationType": "Relevance", "testScenario": "Relevance - fuzzy name mapping", "input": "{\"first_name\": \"John\",\"last_name\": \"Doe\",\"email_address\": \"john.doe@example.com\"}"}
+{"evaluationType": "Relevance", "testScenario": "Relevance - nested structure extraction", "input": "{\"name\": {\"first\": \"Michael\",\"last\": \"Brown\"},\"contact\": {\"email\": \"michael.brown@example.com\"}}"}
+{"evaluationType": "Correctness", "testScenario": "Correctness - field value accuracy", "input": "{\"first_name\": \"Jane\",\"last_name\": \"Smith\",\"email_address\": \"jane.smith@example.com\"}"}
+{"evaluationType": "Correctness", "testScenario": "Correctness - nested extraction", "input": "{\"name\": {\"first\": \"Robert\",\"last\": \"Johnson\"},\"contact\": {\"email\": \"robert@example.com\"}}"}
+{"evaluationType": "Completeness", "testScenario": "Completeness - all fields present", "input": "{\"first_name\": \"Eve\",\"last_name\": \"Martinez\",\"email_address\": \"eve.martinez@example.com\"}"}
+{"evaluationType": "Completeness", "testScenario": "Completeness - nested fields extraction", "input": "{\"person\": {\"givenName\": \"Frank\",\"familyName\": \"Taylor\"},\"emailAddress\": \"frank.taylor@example.com\"}"}
+{"evaluationType": "Grounding", "testScenario": "Grounding - simple mapping", "input": "{\"first_name\": \"Thomas\",\"last_name\": \"Anderson\",\"email_address\": \"thomas.anderson@example.com\"}"}
+{"evaluationType": "Grounding", "testScenario": "Grounding - complex extraction", "input": "{\"customer\": {\"personal_info\": {\"fname\": \"Patricia\",\"lname\": \"Garcia\"},\"contact\": {\"email\": \"patricia.garcia@example.com\"}}}"}

@@ -30,7 +30,7 @@ public class AgentExecutionService(
         _logger.LogInformation("Initializing agent execution service");
 
         // Load schema from embedded resource
-        var schemaJson = LoadEmbeddedSchema();
+        var schemaJson = EmbeddedSchemaLoader.LoadSchemaJson();
         var jsonSchema = JsonSchema.FromText(schemaJson);
         var schemaJsonElement = jsonSchema.ToJsonDocument().RootElement;
 
@@ -45,20 +45,5 @@ public class AgentExecutionService(
         });
 
         _logger.LogInformation("Agent initialization complete");
-    }
-
-    /// <summary>
-    /// Loads the default schema from embedded resources.
-    /// </summary>
-    private static string LoadEmbeddedSchema()
-    {
-        var assembly = typeof(AgentExecutionService).Assembly;
-        var resourceName = "AgenticStructuredOutput.Resources.schema.json";
-        
-        using var stream = assembly.GetManifestResourceStream(resourceName)
-            ?? throw new InvalidOperationException($"Could not find embedded resource: {resourceName}");
-        
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
     }
 }
