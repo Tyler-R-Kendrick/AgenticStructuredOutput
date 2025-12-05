@@ -14,6 +14,7 @@ if (builder.Environment.IsDevelopment())
 
 // Register all services
 builder.Services.AddAgentServices(builder.Configuration);
+builder.Services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
 
 var app = builder.Build();
 

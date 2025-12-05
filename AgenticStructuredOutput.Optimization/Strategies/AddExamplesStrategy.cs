@@ -7,17 +7,12 @@ namespace AgenticStructuredOutput.Optimization.Strategies;
 /// <summary>
 /// Adds few-shot examples to the prompt to improve accuracy.
 /// </summary>
-public class AddExamplesStrategy : IPromptMutationStrategy
+public class AddExamplesStrategy(int maxExamples = 3) : IPromptMutationStrategy
 {
     public string Name => "AddExamples";
     public string Description => "Add few-shot examples to demonstrate desired input-output mappings";
 
-    private readonly int _maxExamples;
-
-    public AddExamplesStrategy(int maxExamples = 3)
-    {
-        _maxExamples = maxExamples;
-    }
+    private readonly int _maxExamples = maxExamples;
 
     public Task<string> MutateAsync(string basePrompt, MutationContext context)
     {

@@ -7,17 +7,12 @@ namespace AgenticStructuredOutput.Optimization.Strategies;
 /// <summary>
 /// Simplifies prompt language to reduce verbosity and improve focus.
 /// </summary>
-public partial class SimplifyLanguageStrategy : IPromptMutationStrategy
+public partial class SimplifyLanguageStrategy(double targetReduction = 0.20) : IPromptMutationStrategy
 {
     public string Name => "SimplifyLanguage";
     public string Description => "Reduce prompt verbosity while preserving essential instructions";
 
-    private readonly double _targetReduction;
-
-    public SimplifyLanguageStrategy(double targetReduction = 0.20)
-    {
-        _targetReduction = targetReduction;
-    }
+    private readonly double _targetReduction = targetReduction;
 
     public Task<string> MutateAsync(string basePrompt, MutationContext context)
     {

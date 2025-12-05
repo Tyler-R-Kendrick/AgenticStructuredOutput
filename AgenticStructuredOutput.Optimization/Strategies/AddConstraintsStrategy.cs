@@ -7,17 +7,12 @@ namespace AgenticStructuredOutput.Optimization.Strategies;
 /// <summary>
 /// Adds explicit constraints to the prompt to prevent common failure modes.
 /// </summary>
-public class AddConstraintsStrategy : IPromptMutationStrategy
+public class AddConstraintsStrategy(string? focusArea = null) : IPromptMutationStrategy
 {
     public string Name => "AddConstraints";
     public string Description => "Add explicit rules and constraints based on evaluation weaknesses";
 
-    private readonly string? _focusArea;
-
-    public AddConstraintsStrategy(string? focusArea = null)
-    {
-        _focusArea = focusArea;
-    }
+    private readonly string? _focusArea = focusArea;
 
     public Task<string> MutateAsync(string basePrompt, MutationContext context)
     {
